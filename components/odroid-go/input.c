@@ -101,13 +101,20 @@ static void odroid_input_task(void *arg)
 		
         if (changes > 0 && odroid_input_callback_fn != NULL) {
             (*odroid_input_callback_fn)(gamepad_state);
+            // update previous only if there's a callback, otherwise get_state will do it;
+            memcpy(gamepad_state.previous, gamepad_state.values, ODROID_INPUT_MAX);
         }
-
-        memcpy(gamepad_state.previous, gamepad_state.values, ODROID_INPUT_MAX);
 
         // delay
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
+}
+
+
+void odroid_input_get_state(odroid_input_state *dst)
+{
+    memcpy(dst, &gamepad_state, sizeof(gamepad_state));
+    memcpy(gamepad_state.previous, gamepad_state.values, ODROID_INPUT_MAX);
 }
 
 

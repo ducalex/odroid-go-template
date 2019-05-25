@@ -50,7 +50,7 @@ typedef struct
     uint8_t realtime[ODROID_INPUT_MAX];
 } odroid_input_state;
 
-odroid_input_state odroid_input_get_state(void);
+void odroid_input_get_state(odroid_input_state *);
 void odroid_input_set_callback(void (*callback)(odroid_input_state));
 void odroid_input_read_raw(uint8_t *);
 void odroid_input_init(void);
