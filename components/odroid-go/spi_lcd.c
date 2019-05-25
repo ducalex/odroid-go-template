@@ -283,14 +283,14 @@ void spi_lcd_fb_setPalette(const int16_t *palette)
 }
 
 
-void spi_lcd_fb_setptr(uint8_t *buffer)
+void spi_lcd_fb_setptr(void *buffer)
 {
     currFbPtr = buffer;
     xSemaphoreGive(dispSem);
 }
 
 
-void spi_lcd_fb_write(uint8_t *buffer)
+void spi_lcd_fb_write(void *buffer)
 {
     //int64_t time = esp_timer_get_time();
     //while (sending); // wait until previous frame is done sending
