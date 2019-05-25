@@ -44,6 +44,8 @@ void spi_lcd_init();
 void spi_lcd_cmd(uint8_t cmd);
 void spi_lcd_data(uint8_t *data, int len);
 void spi_lcd_wait_finish();
+void spi_lcd_fb_free();
+void spi_lcd_fb_alloc();
 void spi_lcd_fb_flush();
 void spi_lcd_fb_setPalette(const int16_t *palette);
 void spi_lcd_fb_setptr(void *buffer);

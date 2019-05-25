@@ -302,6 +302,20 @@ void spi_lcd_fb_write(void *buffer)
 }
 
 
+void spi_lcd_fb_free()
+{
+    free(currFbPtr);
+    currFbPtr = NULL;
+}
+
+
+void spi_lcd_fb_alloc()
+{
+    // Should we free it if currFbPtr is set?
+    currFbPtr = heap_caps_calloc(1, SCREEN_WIDTH * SCREEN_HEIGHT, MALLOC_CAP_8BIT);
+}
+
+
 void spi_lcd_fb_clear()
 {
     memset(currFbPtr, 0, SCREEN_WIDTH * SCREEN_HEIGHT);
@@ -473,7 +487,7 @@ void IRAM_ATTR spi_lcd_init()
 
     odroid_spi_bus_release();
 
-    currFbPtr = heap_caps_calloc(1, SCREEN_WIDTH * SCREEN_HEIGHT, MALLOC_CAP_8BIT);
+    spi_lcd_fb_alloc();
 
     lcd_initialized = true;
 
