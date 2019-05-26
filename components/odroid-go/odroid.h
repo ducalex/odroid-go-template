@@ -15,6 +15,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef _ODROID_H_
+#define _ODROID_H_
+
 #include "esp_heap_caps.h"
 #include "spi_lcd.h"
 #include "sdcard.h"
@@ -39,3 +42,5 @@ void odroid_system_led_set(int value);
 void odroid_spi_bus_acquire();
 void odroid_spi_bus_release();
 void odroid_fatal_error(char *error);
+
+#endif

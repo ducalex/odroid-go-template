@@ -15,6 +15,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef _SPI_LCD_H_
+#define _SPI_LCD_H_
+
 typedef struct {
       uint8_t charCode;
       int adjYOffset;

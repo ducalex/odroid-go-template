@@ -15,6 +15,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef _ODROID_INPUT_H_
+#define _ODROID_INPUT_H_
+
 #include <stdint.h>
 
 #define ODROID_GAMEPAD_IO_X ADC1_CHANNEL_6
@@ -54,3 +57,5 @@ void odroid_input_get_state(odroid_input_state *);
 void odroid_input_set_callback(void (*callback)(odroid_input_state));
 void odroid_input_read_raw(uint8_t *);
 void odroid_input_init(void);
+
+#endif
