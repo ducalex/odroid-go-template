@@ -8,11 +8,14 @@
 void input_callback(odroid_input_state state)
 {
 	spi_lcd_fb_clear();
-	spi_lcd_fb_print(0, 0, "Inputs:");
-	
+	spi_lcd_fb_setFontColor(0xFFFF);
+	spi_lcd_fb_printf(0, 0, "Inputs:");
+	spi_lcd_fb_setFontColor(0x00FF);
+
 	for (int i = 0; i < ODROID_INPUT_MAX; i++) {
 		spi_lcd_fb_print(i * 20, 30, state.values[i] ? "1" : "0");
 	}
+	spi_lcd_fb_flush();
 }
 
 void app_main()
@@ -21,6 +24,6 @@ void app_main()
 	odroid_system_init();
 	
 	odroid_input_set_callback(&input_callback);
-	
 	spi_lcd_fb_print(0, 0, "Hello World!");
+	spi_lcd_fb_flush();
 }

@@ -38,7 +38,7 @@ typedef struct {
 #define LCD_CMD 0
 #define LCD_DATA 1
 
-static const int16_t default_palette[256] = {0, 0xFFFF, 7 << 5, 7, 7 << 10};
+//#define LCD_RGB(r, g, b)
 
 short backlight_percentage_get(void);
 void backlight_percentage_set(short level);
@@ -50,6 +50,7 @@ void spi_lcd_wait_finish();
 void spi_lcd_fb_free();
 void spi_lcd_fb_alloc();
 void spi_lcd_fb_flush();
+void spi_lcd_fb_usePalette(bool use);
 void spi_lcd_fb_setPalette(const int16_t *palette);
 void spi_lcd_fb_setptr(void *buffer);
 void spi_lcd_fb_write(void *buffer);
@@ -59,3 +60,5 @@ void spi_lcd_fb_setFont(const uint8_t *font);
 void spi_lcd_fb_setFontColor(uint16_t color);
 void spi_lcd_fb_print(int x, int y, char *string);
 void spi_lcd_fb_printf(int x, int y, char *string, ...);
+
+#endif

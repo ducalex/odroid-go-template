@@ -37,16 +37,18 @@
 #define SCREEN_HEIGHT 240
 
 static spi_device_handle_t spi;
-static uint8_t BacklightLevel = 75;
-static uint8_t *currFbPtr = NULL;
+static uint8_t backlightLevel = 75;
+static void *currFbPtr = NULL;
+static bool currFbPtrIsExternal = false;
 
-static int16_t color_palette[256];
+static int16_t colorPalette[256] = {0, 0xFFFF, 7 << 5, 7, 7 << 10};
+static bool useColorPalette = false;
 
 static uint8_t *displayFont;
 static propFont	fontChar;
 static uint8_t font_height, font_width;
 static bool enablePrintWrap = true;
-static uint16_t fontColor = 1;
+static uint16_t fontColor = 0xFFFF;
 
 static bool lcd_initialized = false;
 
@@ -54,7 +56,7 @@ SemaphoreHandle_t dispSem = NULL;
 SemaphoreHandle_t fbLock = NULL;
 
 #define NO_SIM_TRANS 5        //Amount of SPI transfers to queue in parallel
-#define MEM_PER_TRANS SCREEN_WIDTH * 2 //in 16-bit words
+#define PIXELS_PER_TRANS SCREEN_WIDTH * 2 //in 16-bit words
 
 // LCD initialization commands
 typedef struct
@@ -122,12 +124,12 @@ static void backlight_init()
     //initialize fade service.
     ledc_fade_func_install(0);
 
-    backlight_percentage_set(BacklightLevel);
+    backlight_percentage_set(backlightLevel);
 }
 
 short backlight_percentage_get(void)
 {
-    return BacklightLevel;
+    return backlightLevel;
 }
 
 void backlight_percentage_set(short level)
@@ -135,9 +137,9 @@ void backlight_percentage_set(short level)
     if (level > 100) level = 100;
     if (level < 10) level = 10;
 
-    BacklightLevel = level;
+    backlightLevel = level;
 
-    int duty = TFT_LED_DUTY_MAX * (BacklightLevel * 0.01f);
+    int duty = TFT_LED_DUTY_MAX * (backlightLevel * 0.01f);
 
     ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty, 1);
     ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_WAIT_DONE /*LEDC_FADE_NO_WAIT*/);
@@ -201,10 +203,10 @@ void spi_lcd_fb_flush()
     if (!initialized) {  // Initialize parallel transactions
         for (int x = 0; x < NO_SIM_TRANS; x++)
         {
-            dmamem[x] = heap_caps_malloc(MEM_PER_TRANS * 2, MALLOC_CAP_DMA);
+            dmamem[x] = heap_caps_malloc(PIXELS_PER_TRANS * 2, MALLOC_CAP_DMA);
             assert(dmamem[x]);
             memset(&trans[x], 0, sizeof(spi_transaction_t));
-            trans[x].length = MEM_PER_TRANS * 2;
+            trans[x].length = PIXELS_PER_TRANS * 2;
             trans[x].user = (void *)1;
             trans[x].tx_buffer = &dmamem[x];
         }
@@ -234,13 +236,20 @@ void spi_lcd_fb_flush()
 
     xSemaphoreTake(fbLock, portMAX_DELAY);
 
-    for (int x = 0; x < SCREEN_WIDTH * SCREEN_HEIGHT; x += MEM_PER_TRANS)
+    for (int x = 0; x < SCREEN_WIDTH * SCREEN_HEIGHT; x += PIXELS_PER_TRANS)
     {
-        for (int i = 0; i < MEM_PER_TRANS; i++)
-        {
-            dmamem[idx][i] = color_palette[currFbPtr[x + i]];
+        if (useColorPalette) {
+            for (int i = 0; i < PIXELS_PER_TRANS; i++)
+            {
+                dmamem[idx][i] = colorPalette[((uint8_t *)currFbPtr)[x + i]];
+            }
+        } else {
+            for (int i = 0; i < PIXELS_PER_TRANS; i++)
+            {
+                dmamem[idx][i] = ((uint16_t *)currFbPtr)[x + i];
+            }
         }
-        trans[idx].length = MEM_PER_TRANS * 16;
+        trans[idx].length = PIXELS_PER_TRANS * 16;
         trans[idx].user = (void *)1;
         trans[idx].tx_buffer = dmamem[idx];
         ret = spi_device_queue_trans(spi, &trans[idx], portMAX_DELAY);
@@ -274,18 +283,29 @@ void spi_lcd_fb_flush()
 }
 
 
+void spi_lcd_fb_usePalette(bool use)
+{
+    bool realloc = (use != useColorPalette);
+    useColorPalette = use;
+
+    if (realloc) {
+        spi_lcd_fb_free();
+        spi_lcd_fb_alloc();
+    }
+}
+
+
 void spi_lcd_fb_setPalette(const int16_t *palette)
 {
-    if (palette == NULL) {
-        palette = default_palette;
-    }
-    memcpy(color_palette, palette, 256 * 2);
+    memcpy(colorPalette, palette, sizeof(colorPalette));
 }
 
 
 void spi_lcd_fb_setptr(void *buffer)
 {
+    spi_lcd_fb_free();
     currFbPtr = buffer;
+    currFbPtrIsExternal = true;
     xSemaphoreGive(dispSem);
 }
 
@@ -304,27 +324,40 @@ void spi_lcd_fb_write(void *buffer)
 
 void spi_lcd_fb_free()
 {
-    free(currFbPtr);
+    // Only free if the buffer is allocated AND we allocated it ourselves
+    if (currFbPtr != NULL && !currFbPtrIsExternal) {
+        free(currFbPtr);
+    }
     currFbPtr = NULL;
 }
 
 
 void spi_lcd_fb_alloc()
 {
-    // Should we free it if currFbPtr is set?
-    currFbPtr = heap_caps_calloc(1, SCREEN_WIDTH * SCREEN_HEIGHT, MALLOC_CAP_8BIT);
+    // Only allocate if the buffer isn't allocated OR we didn't allocate it ourselves
+    if (currFbPtr == NULL || currFbPtrIsExternal) {
+        uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * (useColorPalette ? 1 : 2);
+        currFbPtr = heap_caps_calloc(1, bufferSize, MALLOC_CAP_8BIT);
+        currFbPtrIsExternal = false;
+    }
 }
 
 
 void spi_lcd_fb_clear()
 {
-    memset(currFbPtr, 0, SCREEN_WIDTH * SCREEN_HEIGHT);
+    uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * (useColorPalette ? 1 : 2);
+    memset(currFbPtr, 0, bufferSize);
 }
 
 
 void spi_lcd_fb_drawPixel(int x, int y, uint16_t color)
 {
-    currFbPtr[x * SCREEN_WIDTH + y] = color;
+    if (useColorPalette) {
+        ((uint8_t *)currFbPtr)[x * SCREEN_WIDTH + y] = color;
+    } else {
+        ((uint16_t *)currFbPtr)[x * SCREEN_WIDTH + y] = color;
+    }
+
 }
 
 
@@ -446,7 +479,7 @@ void IRAM_ATTR spi_lcd_init()
         .sclk_io_num = PIN_NUM_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = (MEM_PER_TRANS * 2) + 16
+        .max_transfer_sz = (PIXELS_PER_TRANS * 2) + 16
     };
 
     spi_device_interface_config_t devcfg = {
@@ -480,14 +513,13 @@ void IRAM_ATTR spi_lcd_init()
     }
 
     spi_lcd_fb_setFont(tft_Dejavu24);
-    spi_lcd_fb_setPalette(NULL);
+    spi_lcd_fb_usePalette(false);
+    spi_lcd_fb_alloc();
 
     //Enable backlight
     backlight_init();
 
     odroid_spi_bus_release();
-
-    spi_lcd_fb_alloc();
 
     lcd_initialized = true;
 
