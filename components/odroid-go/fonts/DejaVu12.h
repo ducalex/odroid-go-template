@@ -38,7 +38,7 @@
 // Memory usage : 1158 bytes
 // # characters : 95
 
-const unsigned char tft_DefaultFont[] =
+const unsigned char tft_Dejavu12[] =
 {
 0x00, 0x0B, 0x86, 0x04,
 

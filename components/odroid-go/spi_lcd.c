@@ -40,6 +40,7 @@ static spi_device_handle_t spi;
 static uint8_t backlightLevel = 75;
 static void *currFbPtr = NULL;
 static bool currFbPtrIsExternal = false;
+static uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT;
 
 static int16_t defaultPalette[256] = {0, LCD_RGB(255, 255, 255), LCD_RGB(255, 0, 0), LCD_RGB(0, 255, 0), LCD_RGB(0, 0, 255)};
 static int16_t colorPalette[256];
@@ -289,6 +290,8 @@ void spi_lcd_fb_usePalette(bool use)
     bool realloc = (use != useColorPalette);
     useColorPalette = use;
 
+    bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * (useColorPalette ? 1 : 2);
+
     if (realloc) {
         spi_lcd_fb_free();
         spi_lcd_fb_alloc();
@@ -320,7 +323,7 @@ void spi_lcd_fb_write(void *buffer)
     //while (sending); // wait until previous frame is done sending
     xSemaphoreTake(fbLock, portMAX_DELAY); // wait until previous frame is done sending
     //printf("Frame delayed: %d\n", (int)(esp_timer_get_time() - time));
-    memcpy(currFbPtr, buffer, SCREEN_WIDTH * SCREEN_HEIGHT);
+    memcpy(currFbPtr, buffer, bufferSize);
     xSemaphoreGive(fbLock);
     xSemaphoreGive(dispSem);
 }
@@ -340,7 +343,6 @@ void spi_lcd_fb_alloc()
 {
     // Only allocate if the buffer isn't allocated OR we didn't allocate it ourselves
     if (currFbPtr == NULL || currFbPtrIsExternal) {
-        uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * (useColorPalette ? 1 : 2);
         currFbPtr = heap_caps_calloc(1, bufferSize, MALLOC_CAP_8BIT);
         currFbPtrIsExternal = false;
     }
@@ -349,7 +351,6 @@ void spi_lcd_fb_alloc()
 
 void spi_lcd_fb_clear()
 {
-    uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * (useColorPalette ? 1 : 2);
     memset(currFbPtr, 0, bufferSize);
 }
 
