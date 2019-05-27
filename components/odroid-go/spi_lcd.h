@@ -38,7 +38,11 @@ typedef struct {
 #define LCD_CMD 0
 #define LCD_DATA 1
 
-//#define LCD_RGB(r, g, b)
+#define LCD_RGB(r, g, b) \
+      (((((r / 255 * 31) & 0x1F) << 11) | (((g / 255 * 62) & 0x3F) << 5) | (((b / 255 * 31) & 0x1F))) << 8 \
+      | ((((r / 255 * 31) & 0x1F) << 11) | (((g / 255 * 62) & 0x3F) << 5) | (((b / 255 * 31) & 0x1F))) >> 8) & 0xFFFF
+
+#define LCD_DEFAULT_PALETTE NULL
 
 short backlight_percentage_get(void);
 void backlight_percentage_set(short level);

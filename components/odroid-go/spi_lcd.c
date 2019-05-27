@@ -41,7 +41,8 @@ static uint8_t backlightLevel = 75;
 static void *currFbPtr = NULL;
 static bool currFbPtrIsExternal = false;
 
-static int16_t colorPalette[256] = {0, 0xFFFF, 7 << 5, 7, 7 << 10};
+static int16_t defaultPalette[256] = {0, LCD_RGB(255, 255, 255), LCD_RGB(255, 0, 0), LCD_RGB(0, 255, 0), LCD_RGB(0, 0, 255)};
+static int16_t colorPalette[256];
 static bool useColorPalette = false;
 
 static uint8_t *displayFont;
@@ -297,6 +298,9 @@ void spi_lcd_fb_usePalette(bool use)
 
 void spi_lcd_fb_setPalette(const int16_t *palette)
 {
+    if (palette == NULL) { // Reset to default palette which is black,white,red,green,blue
+        palette = defaultPalette;
+    }
     memcpy(colorPalette, palette, sizeof(colorPalette));
 }
 
