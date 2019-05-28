@@ -36,6 +36,11 @@
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 
+static uint16_t windowWidth = SCREEN_WIDTH;
+static uint16_t windowHeight = SCREEN_HEIGHT;
+static uint16_t windowXOffset = 0;
+static uint16_t windowYOffset = 0;
+
 static spi_device_handle_t spi;
 static uint8_t backlightLevel = 75;
 static void *currFbPtr = NULL;
@@ -196,6 +201,17 @@ void spi_lcd_wait_finish()
 }
 
 
+void spi_lcd_setWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+{
+    windowXOffset = x;
+    windowYOffset = y;
+    windowWidth = width;
+    windowHeight = height;
+
+    spi_lcd_fb_alloc();
+}
+
+
 void spi_lcd_fb_flush()
 {
     static uint16_t *dmamem[NO_SIM_TRANS];
@@ -222,23 +238,24 @@ void spi_lcd_fb_flush()
         
     spi_transaction_t *rtrans;
     esp_err_t ret;
-
-    uint8_t zero[] = {0, 0}; // 0
-    uint8_t endcol[] = {1, 63}; // 320
-    uint8_t endpage[] = {0, 239}; // 240
+    
+    uint8_t startcol[] = {windowXOffset >> 8, windowXOffset & 0xFF};
+    uint8_t endcol[] = {(windowWidth + windowXOffset - 1) >> 8, (windowWidth + windowXOffset - 1) & 0xFF};
+    uint8_t startpage[] = {windowYOffset >> 8, windowYOffset & 0xFF};
+    uint8_t endpage[] = {(windowHeight + windowYOffset - 1) >> 8, (windowHeight + windowYOffset - 1) & 0xFF};
 
     spi_lcd_cmd(0x2A); //Column Address Set
-    spi_lcd_data(zero, 2); //Start Col
+    spi_lcd_data(startcol, 2); //Start Col
     spi_lcd_data(endcol, 2); //End Col
 
     spi_lcd_cmd(0x2B); // Page address
-    spi_lcd_data(zero, 2); //Start page
+    spi_lcd_data(startpage, 2); //Start page
     spi_lcd_data(endpage, 2); //End page
     spi_lcd_cmd(0x2C); // Write
 
     xSemaphoreTake(fbLock, portMAX_DELAY);
 
-    for (int x = 0; x < SCREEN_WIDTH * SCREEN_HEIGHT; x += PIXELS_PER_TRANS)
+    for (int x = 0; x < windowWidth * windowHeight; x += PIXELS_PER_TRANS)
     {
         if (useColorPalette) {
             for (int i = 0; i < PIXELS_PER_TRANS; i++)
@@ -287,15 +304,8 @@ void spi_lcd_fb_flush()
 
 void spi_lcd_fb_usePalette(bool use)
 {
-    bool realloc = (use != useColorPalette);
     useColorPalette = use;
-
-    bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * (useColorPalette ? 1 : 2);
-
-    if (realloc) {
-        spi_lcd_fb_free();
-        spi_lcd_fb_alloc();
-    }
+    spi_lcd_fb_alloc();
 }
 
 
@@ -308,12 +318,23 @@ void spi_lcd_fb_setPalette(const int16_t *palette)
 }
 
 
-void spi_lcd_fb_setptr(void *buffer)
+void spi_lcd_fb_setPtr(void *buffer)
 {
-    spi_lcd_fb_free();
+    if (currFbPtr != NULL && !currFbPtrIsExternal) {
+        free(currFbPtr);
+    }
+    if (buffer == NULL) {
+        spi_lcd_fb_alloc();
+    }
     currFbPtr = buffer;
     currFbPtrIsExternal = true;
     xSemaphoreGive(dispSem);
+}
+
+
+void * spi_lcd_fb_getPtr()
+{
+    return currFbPtr;
 }
 
 
@@ -329,23 +350,17 @@ void spi_lcd_fb_write(void *buffer)
 }
 
 
-void spi_lcd_fb_free()
-{
-    // Only free if the buffer is allocated AND we allocated it ourselves
-    if (currFbPtr != NULL && !currFbPtrIsExternal) {
-        free(currFbPtr);
-    }
-    currFbPtr = NULL;
-}
-
-
 void spi_lcd_fb_alloc()
 {
-    // Only allocate if the buffer isn't allocated OR we didn't allocate it ourselves
-    if (currFbPtr == NULL || currFbPtrIsExternal) {
-        currFbPtr = heap_caps_calloc(1, bufferSize, MALLOC_CAP_8BIT);
-        currFbPtrIsExternal = false;
-    }
+    //if (currFbPtrIsExternal) {
+    //    currFbPtrIsExternal = false;
+    //    currFbPtr = NULL;
+    //}
+    
+    bufferSize = windowWidth * windowHeight * (useColorPalette ? 1 : 2);
+    currFbPtr = heap_caps_realloc(currFbPtr, bufferSize, MALLOC_CAP_8BIT);
+
+    spi_lcd_fb_clear();
 }
 
 
@@ -358,9 +373,9 @@ void spi_lcd_fb_clear()
 void spi_lcd_fb_drawPixel(int x, int y, uint16_t color)
 {
     if (useColorPalette) {
-        ((uint8_t *)currFbPtr)[x * SCREEN_WIDTH + y] = color;
+        ((uint8_t *)currFbPtr)[x * windowWidth + y] = color;
     } else {
-        ((uint16_t *)currFbPtr)[x * SCREEN_WIDTH + y] = color;
+        ((uint16_t *)currFbPtr)[x * windowWidth + y] = color;
     }
 
 }
@@ -446,7 +461,7 @@ void spi_lcd_fb_print(int x, int y, char *string)
     int orig_x = x, orig_y = y;
     
     for (int i = 0; i < strlen(string); i++) {
-        if ((enablePrintWrap && x >= (SCREEN_WIDTH - font_width)) || string[i] == '\n') {
+        if ((enablePrintWrap && x >= (windowWidth - font_width)) || string[i] == '\n') {
             y += font_height + 5;
             x = orig_x;
         }
