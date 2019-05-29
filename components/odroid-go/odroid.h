@@ -33,6 +33,10 @@
 #define PIN_NUM_LCD_BCKL 14
 #define SPI_DMA_CHANNEL 2
 
+//#define ODROID_LCD_TASK_DISABLE
+//#define ODROID_INPUT_TASK_DISABLE
+#define ODROID_TASKS_USE_CORE 1
+
 size_t free_bytes_total();
 size_t free_bytes_internal();
 size_t free_bytes_spiram();

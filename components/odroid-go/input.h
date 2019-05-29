@@ -18,6 +18,14 @@
 #ifndef _ODROID_INPUT_H_
 #define _ODROID_INPUT_H_
 
+#ifndef ODROID_INPUT_TASK_ENABLE
+#define ODROID_INPUT_TASK_ENABLE 1
+#endif
+
+#ifndef ODROID_INPUT_TASK_CORE
+#define ODROID_INPUT_TASK_CORE 1
+#endif
+
 #include <stdint.h>
 
 #define ODROID_GAMEPAD_IO_X ADC1_CHANNEL_6

@@ -155,6 +155,8 @@ void odroid_input_init(void)
 
     input_gamepad_initialized = true;
 
+#ifndef ODROID_INPUT_TASK_DISABLE
     // Start background polling
-    xTaskCreatePinnedToCore(&odroid_input_task, "odroid_input_task", 1024 * 2, NULL, 6, NULL, 1);
+    xTaskCreatePinnedToCore(&odroid_input_task, "odroid_input_task", 1024 * 4, NULL, 6, NULL, ODROID_TASKS_USE_CORE);
+#endif
 }

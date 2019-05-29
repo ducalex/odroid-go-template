@@ -543,6 +543,8 @@ void IRAM_ATTR spi_lcd_init()
 
     lcd_initialized = true;
 
+#ifndef ODROID_LCD_TASK_DISABLE
     printf("spi_lcd_init(): Starting display task.\n");
-    xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, NULL, 1);
+    xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, NULL, ODROID_TASKS_USE_CORE);
+#endif
 }
