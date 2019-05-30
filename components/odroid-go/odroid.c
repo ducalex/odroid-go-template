@@ -88,16 +88,12 @@ void odroid_fatal_error(char *error)
 {
     printf("Error: %s\n", error);
     spi_lcd_init(); // This is really only called if the error occurs in the SD card init
-    
-    // Switch to palette mode in case the error was caused by running out of memory
-    spi_lcd_fb_setPalette(LCD_DEFAULT_PALETTE);
-    spi_lcd_fb_usePalette(true);
-    spi_lcd_fb_setFontColor(2); // Red
-
-    spi_lcd_fb_clear();
-    spi_lcd_fb_print(0, 0, "A fatal error occurred :(");
-    spi_lcd_fb_print(0, 50, error);
-    spi_lcd_fb_flush();
+    spi_lcd_useFrameBuffer(false); // Send the error directly to the LCD
+    spi_lcd_usePalette(false);
+    spi_lcd_setFontColor(LCD_RGB(255, 0, 0)); // Red
+    spi_lcd_clear();
+    spi_lcd_print(0, 0, "A fatal error occurred :(");
+    spi_lcd_print(0, 50, error);
     odroid_sound_deinit();
     exit(-1);
 }

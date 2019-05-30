@@ -42,10 +42,15 @@ static uint16_t windowXOffset = 0;
 static uint16_t windowYOffset = 0;
 
 static spi_device_handle_t spi;
+static TaskHandle_t *task = NULL;
+
 static uint8_t backlightLevel = 75;
+static bool lcd_initialized = false;
+
 static void *currFbPtr = NULL;
 static bool currFbPtrIsExternal = false;
 static uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT;
+static bool useFrameBuffer = false;
 
 static int16_t defaultPalette[256] = {0, LCD_RGB(255, 255, 255), LCD_RGB(255, 0, 0), LCD_RGB(0, 255, 0), LCD_RGB(0, 0, 255)};
 static int16_t colorPalette[256];
@@ -57,13 +62,12 @@ static uint8_t font_height, font_width;
 static bool enablePrintWrap = true;
 static uint16_t fontColor = 0xFFFF;
 
-static bool lcd_initialized = false;
-
 SemaphoreHandle_t dispSem = NULL;
 SemaphoreHandle_t fbLock = NULL;
 
 #define NO_SIM_TRANS 5        //Amount of SPI transfers to queue in parallel
 #define PIXELS_PER_TRANS SCREEN_WIDTH * 2 //in 16-bit words
+#define htons(a) ((a) << 8) | ((a) >> 8)
 
 // LCD initialization commands
 typedef struct
@@ -153,17 +157,7 @@ void backlight_percentage_set(short level)
 }
 
 
-void IRAM_ATTR displayTask(void *arg)
-{
-    while (1)
-    {
-        xSemaphoreTake(dispSem, portMAX_DELAY);
-        spi_lcd_fb_flush();
-    }
-}
-
-
-void spi_lcd_transmit(uint8_t *data, int len, int dc)
+void spi_lcd_write(uint8_t *data, int len, int dc)
 {
     esp_err_t ret;
     spi_transaction_t t;
@@ -177,15 +171,21 @@ void spi_lcd_transmit(uint8_t *data, int len, int dc)
 }
 
 
-void spi_lcd_cmd(uint8_t cmd)
+void spi_lcd_write8(uint8_t data)
 {
-    spi_lcd_transmit(&cmd, 1, 0);
+    spi_lcd_write(&data, 2, 1);
 }
 
 
-void spi_lcd_data(uint8_t *data, int len)
+void spi_lcd_write16(uint16_t data)
 {
-    spi_lcd_transmit(data, len, 1);
+    spi_lcd_write(&data, 2, 1);
+}
+
+
+void spi_lcd_cmd(uint8_t cmd)
+{
+    spi_lcd_write(&cmd, 1, 0);
 }
 
 
@@ -208,12 +208,210 @@ void spi_lcd_setWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
     windowWidth = width;
     windowHeight = height;
 
-    spi_lcd_fb_alloc();
+    if (useFrameBuffer) {
+        spi_lcd_fb_alloc();
+    }
+}
+
+
+void spi_lcd_clip(int x0, int y0, int x1, int y1)
+{
+    spi_lcd_cmd(0x2A); //Column Address Set
+    spi_lcd_write16(htons(x0)); //Start Col
+    spi_lcd_write16(htons(x1)); //End Col
+
+    spi_lcd_cmd(0x2B); // Page address
+    spi_lcd_write16(htons(y0)); //Start page
+    spi_lcd_write16(htons(y1)); //End page
+}
+
+
+void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
+{
+    // maybe we should htons the color and make LCD_RGB not do it?
+    if (useFrameBuffer) {
+        int start = y0 * windowWidth + x0;
+        int end   = start + (h * w);
+        for (int pos = start; pos <= end; pos++) {
+            if (useColorPalette) {
+                ((uint8_t *)currFbPtr)[pos] = color;
+            } else {
+                ((uint16_t *)currFbPtr)[pos] = color;
+            }
+        }
+    } else {
+        odroid_spi_bus_acquire();
+
+        spi_lcd_clip(x0, y0, x0 + w, y0 + h);
+        spi_lcd_cmd(0x2C); // Write
+        
+        uint16_t buffer[128] = {color};
+
+        for(int pixels = w * h; pixels > 0; pixels -= 128) {
+            spi_lcd_write(buffer, (pixels > 128 ? 128 : pixels) * 2, 1);
+        }
+        odroid_spi_bus_release();
+    }
+}
+
+
+void inline spi_lcd_drawPixel(int x, int y, uint16_t color)
+{
+    spi_lcd_fill(x, y, 1, 1, color);
+}
+
+
+void spi_lcd_usePalette(bool use)
+{
+    useColorPalette = use;
+    
+    if (useFrameBuffer) {
+        spi_lcd_fb_alloc(); // Resize framebuffer
+    }
+}
+
+
+void spi_lcd_useFrameBuffer(bool use)
+{
+    useFrameBuffer = use;
+
+    if (useFrameBuffer) {
+        spi_lcd_fb_alloc();
+        spi_lcd_fb_update();
+    } else {
+        if (!currFbPtrIsExternal)
+            free(currFbPtr);
+        currFbPtr = NULL;
+    }
+}
+
+
+void spi_lcd_setPalette(const int16_t *palette)
+{
+    if (palette == NULL) { // Reset to default palette which is black,white,red,green,blue
+        palette = defaultPalette;
+    }
+    memcpy(colorPalette, palette, sizeof(colorPalette));
+}
+
+
+void spi_lcd_clear()
+{
+    if (useFrameBuffer) {
+        memset(currFbPtr, 0, bufferSize);
+    } else {
+        spi_lcd_fill(windowXOffset, windowYOffset, windowWidth, windowHeight, 0x0000);
+    }
+}
+
+
+static uint8_t getCharPtr(uint8_t c)
+{
+    fontChar.dataPtr = 4;
+    
+    do {
+        fontChar.charCode = displayFont[fontChar.dataPtr++];
+        fontChar.adjYOffset = displayFont[fontChar.dataPtr++];
+        fontChar.width = displayFont[fontChar.dataPtr++];
+        fontChar.height = displayFont[fontChar.dataPtr++];
+        fontChar.xOffset = displayFont[fontChar.dataPtr++];
+        fontChar.xOffset = fontChar.xOffset < 0x80 ? fontChar.xOffset : -(0xFF - fontChar.xOffset);
+        fontChar.xDelta = displayFont[fontChar.dataPtr++];
+
+        if (c != fontChar.charCode && fontChar.charCode != 0xFF) {
+            if (fontChar.width != 0) {
+                // packed bits
+                fontChar.dataPtr += (((fontChar.width * fontChar.height)-1) / 8) + 1;
+            }
+        }
+    } while ((c != fontChar.charCode) && (fontChar.charCode != 0xFF));
+
+    return (c == fontChar.charCode) ? 1 : 0;
+}
+
+
+static int spi_lcd_drawChar(int x, int y, uint8_t c)
+{
+    if (!getCharPtr(c)) {
+        return 0;
+    }
+
+	uint8_t ch = 0, char_width = 0;
+	int cx, cy;
+
+	char_width = ((fontChar.width > fontChar.xDelta) ? fontChar.width : fontChar.xDelta);
+
+	// draw Glyph
+	uint8_t mask = 0x80;
+	for (int j = 0; j < fontChar.height; j++) {
+		for (int i = 0; i < fontChar.width; i++) {
+			if (((i + (j*fontChar.width)) % 8) == 0) {
+				mask = 0x80;
+				ch = displayFont[fontChar.dataPtr++];
+			}
+
+			if ((ch & mask) !=0) {
+				cx = (uint16_t)(x+fontChar.xOffset+i);
+				cy = (uint16_t)(y+j+fontChar.adjYOffset);
+				spi_lcd_drawPixel(cx, cy, fontColor);
+			}
+			mask >>= 1;
+		}
+	}
+
+	return char_width;
+}
+
+
+void spi_lcd_setFont(const uint8_t *font)
+{
+    displayFont = font;
+
+    //font_width = font[0];
+    font_height = font[1];
+    getCharPtr('@');
+    font_width = fontChar.width;
+}
+
+
+void spi_lcd_setFontColor(uint16_t color)
+{
+    fontColor = color;
+}
+
+
+void spi_lcd_print(int x, int y, char *string)
+{
+    int orig_x = x, orig_y = y;
+    
+    for (int i = 0; i < strlen(string); i++) {
+        if ((enablePrintWrap && x >= (windowWidth - font_width)) || string[i] == '\n') {
+            y += font_height + 5;
+            x = orig_x;
+        }
+        x += spi_lcd_drawChar(x, y, (uint8_t) string[i]);
+    }
+
+    //spi_lcd_fb_update();
+}
+
+
+void spi_lcd_printf(int x, int y, char *format, ...)
+{
+    char buffer[1024];
+    va_list argptr;
+    va_start(argptr, format);
+    vsprintf(buffer, format, argptr);
+    va_end(argptr);
+    
+    spi_lcd_print(x, y, buffer);
 }
 
 
 void spi_lcd_fb_flush()
 {
+    if (!useFrameBuffer) return;
+
     static uint16_t *dmamem[NO_SIM_TRANS];
     static spi_transaction_t trans[NO_SIM_TRANS];
     static bool initialized = false;
@@ -239,18 +437,7 @@ void spi_lcd_fb_flush()
     spi_transaction_t *rtrans;
     esp_err_t ret;
     
-    uint8_t startcol[] = {windowXOffset >> 8, windowXOffset & 0xFF};
-    uint8_t endcol[] = {(windowWidth + windowXOffset - 1) >> 8, (windowWidth + windowXOffset - 1) & 0xFF};
-    uint8_t startpage[] = {windowYOffset >> 8, windowYOffset & 0xFF};
-    uint8_t endpage[] = {(windowHeight + windowYOffset - 1) >> 8, (windowHeight + windowYOffset - 1) & 0xFF};
-
-    spi_lcd_cmd(0x2A); //Column Address Set
-    spi_lcd_data(startcol, 2); //Start Col
-    spi_lcd_data(endcol, 2); //End Col
-
-    spi_lcd_cmd(0x2B); // Page address
-    spi_lcd_data(startpage, 2); //Start page
-    spi_lcd_data(endpage, 2); //End page
+    spi_lcd_clip(windowXOffset, windowYOffset, windowWidth + windowXOffset - 1, windowHeight + windowYOffset - 1);
     spi_lcd_cmd(0x2C); // Write
 
     xSemaphoreTake(fbLock, portMAX_DELAY);
@@ -263,10 +450,7 @@ void spi_lcd_fb_flush()
                 dmamem[idx][i] = colorPalette[((uint8_t *)currFbPtr)[x + i]];
             }
         } else {
-            for (int i = 0; i < PIXELS_PER_TRANS; i++)
-            {
-                dmamem[idx][i] = ((uint16_t *)currFbPtr)[x + i];
-            }
+            memcpy(dmamem[idx], currFbPtr + (x * 2), PIXELS_PER_TRANS * sizeof(uint16_t));
         }
         trans[idx].length = PIXELS_PER_TRANS * 16;
         trans[idx].user = (void *)1;
@@ -302,33 +486,15 @@ void spi_lcd_fb_flush()
 }
 
 
-void spi_lcd_fb_usePalette(bool use)
-{
-    useColorPalette = use;
-    spi_lcd_fb_alloc();
-}
-
-
-void spi_lcd_fb_setPalette(const int16_t *palette)
-{
-    if (palette == NULL) { // Reset to default palette which is black,white,red,green,blue
-        palette = defaultPalette;
-    }
-    memcpy(colorPalette, palette, sizeof(colorPalette));
-}
-
-
 void spi_lcd_fb_setPtr(void *buffer)
 {
     if (currFbPtr != NULL && !currFbPtrIsExternal) {
         free(currFbPtr);
     }
-    if (buffer == NULL) {
-        spi_lcd_fb_alloc();
-    }
     currFbPtr = buffer;
     currFbPtrIsExternal = true;
-    xSemaphoreGive(dispSem);
+
+    spi_lcd_fb_update();
 }
 
 
@@ -340,13 +506,11 @@ void * spi_lcd_fb_getPtr()
 
 void spi_lcd_fb_write(void *buffer)
 {
-    //int64_t time = esp_timer_get_time();
-    //while (sending); // wait until previous frame is done sending
     xSemaphoreTake(fbLock, portMAX_DELAY); // wait until previous frame is done sending
-    //printf("Frame delayed: %d\n", (int)(esp_timer_get_time() - time));
     memcpy(currFbPtr, buffer, bufferSize);
     xSemaphoreGive(fbLock);
-    xSemaphoreGive(dispSem);
+
+    spi_lcd_fb_update();
 }
 
 
@@ -359,126 +523,24 @@ void spi_lcd_fb_alloc()
     
     bufferSize = windowWidth * windowHeight * (useColorPalette ? 1 : 2);
     currFbPtr = heap_caps_realloc(currFbPtr, bufferSize, MALLOC_CAP_8BIT);
-
-    spi_lcd_fb_clear();
-}
-
-
-void spi_lcd_fb_clear()
-{
+    
     memset(currFbPtr, 0, bufferSize);
 }
 
 
-void spi_lcd_fb_drawPixel(int x, int y, uint16_t color)
+void spi_lcd_fb_update()
 {
-    if (useColorPalette) {
-        ((uint8_t *)currFbPtr)[x * windowWidth + y] = color;
-    } else {
-        ((uint16_t *)currFbPtr)[x * windowWidth + y] = color;
+    xSemaphoreGive(dispSem);
+}
+
+
+void IRAM_ATTR displayTask(void *arg)
+{
+    while (1)
+    {
+        xSemaphoreTake(dispSem, portMAX_DELAY);
+        spi_lcd_fb_flush();
     }
-
-}
-
-
-static uint8_t getCharPtr(uint8_t c)
-{
-    fontChar.dataPtr = 4;
-    
-    do {
-        fontChar.charCode = displayFont[fontChar.dataPtr++];
-        fontChar.adjYOffset = displayFont[fontChar.dataPtr++];
-        fontChar.width = displayFont[fontChar.dataPtr++];
-        fontChar.height = displayFont[fontChar.dataPtr++];
-        fontChar.xOffset = displayFont[fontChar.dataPtr++];
-        fontChar.xOffset = fontChar.xOffset < 0x80 ? fontChar.xOffset : -(0xFF - fontChar.xOffset);
-        fontChar.xDelta = displayFont[fontChar.dataPtr++];
-
-        if (c != fontChar.charCode && fontChar.charCode != 0xFF) {
-            if (fontChar.width != 0) {
-                // packed bits
-                fontChar.dataPtr += (((fontChar.width * fontChar.height)-1) / 8) + 1;
-            }
-        }
-    } while ((c != fontChar.charCode) && (fontChar.charCode != 0xFF));
-
-    return (c == fontChar.charCode) ? 1 : 0;
-}
-
-
-static int spi_lcd_fb_drawChar(int x, int y, uint8_t c)
-{
-    if (!getCharPtr(c)) {
-        return 0;
-    }
-
-	uint8_t ch = 0, char_width = 0;
-	int cx, cy;
-
-	char_width = ((fontChar.width > fontChar.xDelta) ? fontChar.width : fontChar.xDelta);
-
-	// draw Glyph
-	uint8_t mask = 0x80;
-	for (int j = 0; j < fontChar.height; j++) {
-		for (int i = 0; i < fontChar.width; i++) {
-			if (((i + (j*fontChar.width)) % 8) == 0) {
-				mask = 0x80;
-				ch = displayFont[fontChar.dataPtr++];
-			}
-
-			if ((ch & mask) !=0) {
-				cx = (uint16_t)(x+fontChar.xOffset+i);
-				cy = (uint16_t)(y+j+fontChar.adjYOffset);
-				spi_lcd_fb_drawPixel(cy, cx, fontColor);
-			}
-			mask >>= 1;
-		}
-	}
-
-	return char_width;
-}
-
-
-void spi_lcd_fb_setFont(const uint8_t *font)
-{
-    displayFont = font;
-
-    //font_width = font[0];
-    font_height = font[1];
-    getCharPtr('@');
-    font_width = fontChar.width;
-}
-
-
-void spi_lcd_fb_setFontColor(uint16_t color)
-{
-    fontColor = color;
-}
-
-
-void spi_lcd_fb_print(int x, int y, char *string)
-{
-    int orig_x = x, orig_y = y;
-    
-    for (int i = 0; i < strlen(string); i++) {
-        if ((enablePrintWrap && x >= (windowWidth - font_width)) || string[i] == '\n') {
-            y += font_height + 5;
-            x = orig_x;
-        }
-        x += spi_lcd_fb_drawChar(x, y, (uint8_t) string[i]);
-    }
-}
-
-
-void spi_lcd_fb_printf(int x, int y, char *format, ...)
-{
-    char buffer[1024];
-    va_list argptr;
-    va_start(argptr, format);
-    vsprintf(buffer, format, argptr);
-    va_end(argptr);
-    
-    spi_lcd_fb_print(x, y, buffer);
 }
 
 
@@ -528,23 +590,23 @@ void IRAM_ATTR spi_lcd_init()
     while (ili_init_cmds[cmd].databytes != 0xff)
     {
         spi_lcd_cmd(ili_init_cmds[cmd].cmd);
-        spi_lcd_data(ili_init_cmds[cmd].data, ili_init_cmds[cmd].databytes & 0x1F);
+        spi_lcd_write(ili_init_cmds[cmd].data, ili_init_cmds[cmd].databytes & 0x1F, 1);
         cmd++;
     }
 
-    spi_lcd_fb_setFont(tft_Dejavu24);
-    spi_lcd_fb_usePalette(false);
-    spi_lcd_fb_alloc();
+    odroid_spi_bus_release();
 
+    spi_lcd_setFont(tft_Dejavu24);
+    spi_lcd_usePalette(false);
+    spi_lcd_useFrameBuffer(false); // Maybe this should be true?
+    spi_lcd_clear();
+    
     //Enable backlight
     backlight_init();
 
-    odroid_spi_bus_release();
-
     lcd_initialized = true;
-
 #ifndef ODROID_LCD_TASK_DISABLE
     printf("spi_lcd_init(): Starting display task.\n");
-    xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, NULL, ODROID_TASKS_USE_CORE);
+    xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, task, ODROID_TASKS_USE_CORE);
 #endif
 }

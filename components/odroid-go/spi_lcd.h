@@ -49,22 +49,27 @@ void backlight_percentage_set(short level);
 
 void spi_lcd_init();
 void spi_lcd_cmd(uint8_t cmd);
-void spi_lcd_data(uint8_t *data, int len);
+void spi_lcd_write8(uint8_t data);
+void spi_lcd_write16(uint16_t data);
+void spi_lcd_write(uint8_t *data, int len, int dc);
 void spi_lcd_setWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 void spi_lcd_wait_finish();
-void spi_lcd_fb_free();
-void spi_lcd_fb_alloc();
-void spi_lcd_fb_flush();
-void spi_lcd_fb_usePalette(bool use);
-void spi_lcd_fb_setPalette(const int16_t *palette);
+void spi_lcd_usePalette(bool use);
+void spi_lcd_setPalette(const int16_t *palette);
+void spi_lcd_clear();
+void spi_lcd_drawPixel(int x, int y, uint16_t color);
+void spi_lcd_fill(int x, int y, int w, int h, uint16_t color);
+void spi_lcd_setFont(const uint8_t *font);
+void spi_lcd_setFontColor(uint16_t color);
+void spi_lcd_print(int x, int y, char *string);
+void spi_lcd_printf(int x, int y, char *string, ...);
+void spi_lcd_useFrameBuffer(bool use);
 void spi_lcd_fb_setPtr(void *buffer);
 void*spi_lcd_fb_getPtr();
-void spi_lcd_fb_write(void *buffer);
+void spi_lcd_fb_alloc();
 void spi_lcd_fb_clear();
-void spi_lcd_fb_drawPixel(int x, int y, uint16_t color);
-void spi_lcd_fb_setFont(const uint8_t *font);
-void spi_lcd_fb_setFontColor(uint16_t color);
-void spi_lcd_fb_print(int x, int y, char *string);
-void spi_lcd_fb_printf(int x, int y, char *string, ...);
+void spi_lcd_fb_flush(); // fb_flush sends the buffer to the display now, it's synchronous.
+void spi_lcd_fb_update(); // fb_update tells the display task it's time to redraw, it's async. Could be named notify?
+void spi_lcd_fb_write(void *buffer);
 
 #endif
