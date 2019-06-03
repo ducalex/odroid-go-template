@@ -30,7 +30,10 @@
 
 #include "sdkconfig.h"
 
+#include "fonts/DejaVu12.h"
+#include "fonts/DejaVuSans18.h"
 #include "fonts/DejaVuSans24.h"
+
 #include "odroid.h"
 
 #define SCREEN_WIDTH 320

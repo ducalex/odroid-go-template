@@ -72,4 +72,8 @@ void spi_lcd_fb_flush(); // fb_flush sends the buffer to the display now, it's s
 void spi_lcd_fb_update(); // fb_update tells the display task it's time to redraw, it's async. Could be named notify?
 void spi_lcd_fb_write(void *buffer);
 
+const unsigned char tft_Dejavu12[];
+const unsigned char tft_Dejavu18[];
+const unsigned char tft_Dejavu24[];
+
 #endif
