@@ -141,6 +141,12 @@ static void backlight_init()
     backlight_percentage_set(backlightLevel);
 }
 
+void backlight_deinit()
+{
+    ledc_fade_func_uninstall();
+    ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+}
+
 short backlight_percentage_get(void)
 {
     return backlightLevel;
@@ -537,7 +543,7 @@ void spi_lcd_fb_update()
 }
 
 
-void IRAM_ATTR displayTask(void *arg)
+void displayTask(void *arg)
 {
     while (1)
     {
@@ -547,7 +553,16 @@ void IRAM_ATTR displayTask(void *arg)
 }
 
 
-void IRAM_ATTR spi_lcd_init()
+void spi_lcd_deinit()
+{
+    spi_bus_remove_device(spi);
+    backlight_deinit();
+    gpio_reset_pin(PIN_NUM_LCD_CS);
+    gpio_reset_pin(PIN_NUM_LCD_BCKL);
+}
+
+
+void spi_lcd_init()
 {
     if (lcd_initialized) return;
     

@@ -48,6 +48,7 @@ short backlight_percentage_get(void);
 void backlight_percentage_set(short level);
 
 void spi_lcd_init();
+void spi_lcd_deinit();
 void spi_lcd_cmd(uint8_t cmd);
 void spi_lcd_write8(uint8_t data);
 void spi_lcd_write16(uint16_t data);
