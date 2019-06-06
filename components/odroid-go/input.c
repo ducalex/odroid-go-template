@@ -131,6 +131,8 @@ int odroid_input_wait_for_button_press(int ticks)
     
     int timeout = xTaskGetTickCount() + ticks;
 
+    odroid_input_read_raw(&previousValues);
+
     while (true)
     {
         // We don't use gamepad_state because it might be unavailable
