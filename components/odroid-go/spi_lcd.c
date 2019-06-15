@@ -59,7 +59,7 @@ static int16_t defaultPalette[256] = {0, LCD_RGB(255, 255, 255), LCD_RGB(255, 0,
 static int16_t colorPalette[256];
 static bool useColorPalette = false;
 
-static uint8_t *displayFont;
+static const uint8_t *displayFont;
 static propFont	fontChar;
 static uint8_t font_height, font_width;
 static bool enablePrintWrap = true;
@@ -166,7 +166,7 @@ void backlight_percentage_set(short level)
 }
 
 
-void spi_lcd_write(uint8_t *data, int len, int dc)
+void spi_lcd_write(void *data, int len, int dc)
 {
     esp_err_t ret;
     spi_transaction_t t;
@@ -182,7 +182,7 @@ void spi_lcd_write(uint8_t *data, int len, int dc)
 
 void spi_lcd_write8(uint8_t data)
 {
-    spi_lcd_write(&data, 2, 1);
+    spi_lcd_write(&data, 1, 1);
 }
 
 
@@ -391,7 +391,8 @@ void spi_lcd_setFontColor(uint16_t color)
 
 void spi_lcd_print(int x, int y, char *string)
 {
-    int orig_x = x, orig_y = y;
+    int orig_x = x;
+    //int orig_y = y;
     
     for (int i = 0; i < strlen(string); i++) {
         if ((enablePrintWrap && x >= (windowWidth - font_width)) || string[i] == '\n') {

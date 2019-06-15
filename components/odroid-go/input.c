@@ -70,7 +70,7 @@ static void odroid_input_task(void *arg)
     while(1)
     {
         // Read hardware
-        odroid_input_read_raw(&gamepad_state.realtime);
+        odroid_input_read_raw((uint8_t*)&gamepad_state.realtime);
         changes = 0;
 
         // Debounce
@@ -131,12 +131,12 @@ int odroid_input_wait_for_button_press(int ticks)
     
     int timeout = xTaskGetTickCount() + ticks;
 
-    odroid_input_read_raw(&previousValues);
+    odroid_input_read_raw((uint8_t*)&previousValues);
 
     while (true)
     {
         // We don't use gamepad_state because it might be unavailable
-        odroid_input_read_raw(&values);
+        odroid_input_read_raw((uint8_t*)&values);
 
         for(int i = 0; i < ODROID_INPUT_MAX; i++)
         {
