@@ -7,7 +7,7 @@
 # please read the SDK documents if you need to do this.
 #
 
-CFLAGS += -O2
+#CFLAGS += -O2
 
 #include $(IDF_PATH)/make/component_common.mk
 
