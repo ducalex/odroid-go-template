@@ -420,7 +420,7 @@ void spi_lcd_printf(int x, int y, char *format, ...)
 
 void spi_lcd_fb_flush()
 {
-    if (!useFrameBuffer) return;
+    if (!useFrameBuffer || !currFbPtr) return;
 
     static uint16_t *dmamem[NO_SIM_TRANS];
     static spi_transaction_t trans[NO_SIM_TRANS];

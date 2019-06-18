@@ -25,6 +25,7 @@
 #define SAMPLERATE 22050
 
 static bool sound_initialized = false;
+static float volume = 1.00f;
 
 
 void odroid_sound_init(void)
@@ -40,7 +41,7 @@ void odroid_sound_init(void)
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
         .communication_format = I2S_COMM_FORMAT_I2S_MSB,
         .intr_alloc_flags = 0, // default interrupt priority
-        .dma_buf_count = 2,
+        .dma_buf_count = 4,
         .dma_buf_len = 512, // (2) 16bit channels
         .use_apll = false
     };
@@ -64,11 +65,70 @@ void odroid_sound_deinit()
 }
 
 
-size_t odroid_sound_write(void *buffer, size_t length)
+size_t odroid_sound_write_raw(void *buffer, size_t length)
 {
     size_t bytesWritten = 0;
     i2s_write(I2S_NUM_0, buffer, length, &bytesWritten, portMAX_DELAY);
     return bytesWritten;
+}
+
+
+size_t odroid_sound_write(int16_t *soundBuffer, size_t frameCount)
+{
+    // This code from go-play by OtherCrashOverride
+    
+    int sampleCount = frameCount * 2; // One frame = 2x 16bit stereo samples.
+    int bytesCount = frameCount * 4;  // One frame is four bytes.
+    
+	for (int i = 0; i < sampleCount; i += 2)
+    {
+		uint16_t dac0;
+		uint16_t dac1;
+
+		// Down mix stero to mono
+		int32_t sample = soundBuffer[i];
+		sample += soundBuffer[i + 1];
+		sample >>= 1;
+
+		// Normalize
+		const float sn = (float)sample / 0x8000;
+
+		// Scale
+		const int magnitude = 127 + 127;
+		const float range = magnitude  * sn * volume;
+
+		// Convert to differential output
+		if (range > 127)
+		{
+			dac1 = (range - 127);
+			dac0 = 127;
+		}
+		else if (range < -127)
+		{
+			dac1  = (range + 127);
+			dac0 = -127;
+		}
+		else
+		{
+			dac1 = 0;
+			dac0 = range;
+		}
+
+		dac0 += 0x80;
+		dac1 = 0x80 - dac1;
+
+		dac0 <<= 8;
+		dac1 <<= 8;
+
+		soundBuffer[i] = (int16_t)dac1;
+		soundBuffer[i + 1] = (int16_t)dac0;
+        
+        // This is a simpler but less accurate approach:
+		//soundBuffer[i + 1] = soundBuffer[i] << 8;
+		//soundBuffer[i] = (int16_t)0x8000;
+	}
+	
+	return odroid_sound_write_raw(soundBuffer, bytesCount);
 }
 
 
@@ -78,7 +138,7 @@ void odroid_sound_set_sample_rate(uint32_t rate)
 }
 
 
-void odroid_sound_set_volume(uint32_t rate)
+void odroid_sound_set_volume(float newVolume)
 {
-    
+    volume = newVolume;
 }
