@@ -37,14 +37,20 @@
 //#define ODROID_INPUT_TASK_DISABLE
 #define ODROID_TASKS_USE_CORE 1
 
-size_t free_bytes_total();
-size_t free_bytes_internal();
-size_t free_bytes_spiram();
-
 void odroid_system_init();
 void odroid_system_led_set(int value);
 void odroid_spi_bus_acquire();
 void odroid_spi_bus_release();
 void odroid_fatal_error(char *error);
+void odroid_delay(uint32_t ms);
+void odroid_usleep(uint32_t us);
+size_t odroid_mem_free(uint32_t caps);
+uint32_t odroid_millis();
+
+
+// Deprecated
+#define free_bytes_total() odroid_mem_free(MALLOC_CAP_DEFAULT)
+#define free_bytes_internal() odroid_mem_free(MALLOC_CAP_INTERNAL)
+#define free_bytes_spiram() odroid_mem_free(MALLOC_CAP_SPIRAM)
 
 #endif

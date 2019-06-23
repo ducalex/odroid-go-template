@@ -48,6 +48,7 @@ static uint16_t windowXOffset = 0;
 static uint16_t windowYOffset = 0;
 
 static spi_device_handle_t spi;
+static spi_transaction_t spiTrans[NO_SIM_TRANS];
 static TaskHandle_t *task = NULL;
 
 static uint8_t backlightLevel = 75;
@@ -55,7 +56,7 @@ static bool lcd_initialized = false;
 
 static void *currFbPtr = NULL;
 static bool currFbPtrIsExternal = false;
-static uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT;
+static int  bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
 static bool useFrameBuffer = false;
 
 static int16_t defaultPalette[256] = {LCD_COLOR_BLACK, LCD_COLOR_WHITE, LCD_COLOR_RED, LCD_COLOR_GREEN, LCD_COLOR_BLUE};
@@ -63,7 +64,7 @@ static int16_t colorPalette[256];
 static bool useColorPalette = false;
 
 static const uint8_t *displayFont;
-static propFont	fontChar;
+static fontCharacter_t fontChar;
 static uint8_t font_height, font_width;
 static bool enablePrintWrap = true;
 static uint16_t fontColor = LCD_COLOR_WHITE;
@@ -179,20 +180,20 @@ void spi_lcd_write(void *data, int len, int dc)
 }
 
 
-void spi_lcd_write8(uint8_t data)
+static void spi_lcd_write8(uint8_t data)
 {
     spi_lcd_write(&data, 1, 1);
 }
 
 
-void spi_lcd_write16(uint16_t data)
+static void spi_lcd_write16(uint16_t data)
 {
     data = LCD_HTONS(data);
     spi_lcd_write(&data, 2, 1);
 }
 
 
-void spi_lcd_cmd(uint8_t cmd)
+static void spi_lcd_cmd(uint8_t cmd)
 {
     spi_lcd_write(&cmd, 1, 0);
 }
@@ -239,6 +240,8 @@ void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
 {
     // maybe we should htons the color and make LCD_RGB not do it?
     if (useFrameBuffer) {
+        xSemaphoreTake(fbLock, portMAX_DELAY);
+
         for (int x = x0; x < (x0 + w); x++) {
             for (int y = y0; y < (y0 + h); y++) {
                 if (useColorPalette) {
@@ -248,7 +251,10 @@ void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
                 }
             }
         }
-    } else {
+
+        xSemaphoreGive(fbLock);
+    }
+    else {
         odroid_spi_bus_acquire();
 
         spi_lcd_clip(x0, y0, x0 + w, y0 + h);
@@ -258,10 +264,10 @@ void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
             color = colorPalette[color];
         }
         
-        uint16_t buffer[128] = {color};
+        uint16_t buffer[4] = {color, color, color, color};
 
-        for(int pixels = w * h; pixels > 0; pixels -= 128) {
-            spi_lcd_write(buffer, (pixels > 128 ? 128 : pixels) * 2, 1);
+        for(int pixels = w * h; pixels > 0; pixels -= 4) {
+            spi_lcd_write(buffer, (pixels > 4 ? 4 : pixels) * 2, 1);
         }
         odroid_spi_bus_release();
     }
@@ -284,21 +290,6 @@ void spi_lcd_usePalette(bool use)
 }
 
 
-void spi_lcd_useFrameBuffer(bool use)
-{
-    useFrameBuffer = use;
-
-    if (useFrameBuffer) {
-        spi_lcd_fb_alloc();
-        spi_lcd_fb_update();
-    } else {
-        if (!currFbPtrIsExternal)
-            free(currFbPtr);
-        currFbPtr = NULL;
-    }
-}
-
-
 void spi_lcd_setPalette(const int16_t *palette)
 {
     if (palette == NULL) { // Reset to default palette which is black,white,red,green,blue
@@ -311,7 +302,9 @@ void spi_lcd_setPalette(const int16_t *palette)
 void spi_lcd_clear()
 {
     if (useFrameBuffer) {
+        xSemaphoreTake(fbLock, portMAX_DELAY);
         memset(currFbPtr, 0, bufferSize);
+        xSemaphoreGive(fbLock);
     } else {
         spi_lcd_fill(windowXOffset, windowYOffset, windowWidth, windowHeight, 0x0000);
     }
@@ -427,30 +420,54 @@ void spi_lcd_update()
     if (useFrameBuffer) {
         spi_lcd_fb_update();
     }
+    else {
+        // Do nothing
+    }
 }
 
 
-    if (!initialized) {  // Initialize parallel transactions
-        for (int x = 0; x < NO_SIM_TRANS; x++)
-        {
-            dmamem[x] = heap_caps_malloc(PIXELS_PER_TRANS * 2, MALLOC_CAP_DMA);
-            assert(dmamem[x]);
-            memset(&trans[x], 0, sizeof(spi_transaction_t));
-            trans[x].length = PIXELS_PER_TRANS * 2;
-            trans[x].user = (void *)1;
-            trans[x].tx_buffer = &dmamem[x];
-        }
-        initialized = true;
+void spi_lcd_flush()
+{
+    if (useFrameBuffer) {
+        spi_lcd_fb_flush();
     }
+    else {
+        // Do nothing
+    }
+}
+
+
+void spi_lcd_fb_enable()
+{
+    spi_lcd_fb_alloc();
+    spi_lcd_fb_update();
+    useFrameBuffer = true;
+}
+
+
+void spi_lcd_fb_disable()
+{
+    xSemaphoreTake(fbLock, portMAX_DELAY);
+    if (!currFbPtrIsExternal)
+        free(currFbPtr);
+    currFbPtr = NULL;
+    xSemaphoreGive(fbLock);
+    useFrameBuffer = false;
+}
+
+
+void spi_lcd_fb_flush()
+{
+    if (!useFrameBuffer || !currFbPtr) return;
 
     odroid_spi_bus_acquire();
 
     int idx = 0;
     int inProgress = 0;
-        
+
     spi_transaction_t *rtrans;
     esp_err_t ret;
-    
+
     spi_lcd_clip(windowXOffset, windowYOffset, windowWidth + windowXOffset - 1, windowHeight + windowYOffset - 1);
     spi_lcd_cmd(0x2C); // Write
 
@@ -461,15 +478,14 @@ void spi_lcd_update()
         if (useColorPalette) {
             for (int i = 0; i < PIXELS_PER_TRANS; i++)
             {
-                dmamem[idx][i] = colorPalette[((uint8_t *)currFbPtr)[x + i]];
+                ((uint8_t *)spiTrans[idx].tx_buffer)[i] = colorPalette[((uint8_t *)currFbPtr)[x + i]];
             }
         } else {
-            memcpy(dmamem[idx], currFbPtr + (x * 2), PIXELS_PER_TRANS * sizeof(uint16_t));
+            memcpy(spiTrans[idx].tx_buffer, currFbPtr + (x * 2), PIXELS_PER_TRANS * sizeof(uint16_t));
         }
-        trans[idx].length = PIXELS_PER_TRANS * 16;
-        trans[idx].user = (void *)1;
-        trans[idx].tx_buffer = dmamem[idx];
-        ret = spi_device_queue_trans(spi, &trans[idx], portMAX_DELAY);
+
+        spiTrans[idx].length = PIXELS_PER_TRANS * 16;
+        ret = spi_device_queue_trans(spi, &spiTrans[idx], portMAX_DELAY);
         assert(ret == ESP_OK);
 
         idx++;
@@ -534,11 +550,13 @@ void spi_lcd_fb_alloc()
     //    currFbPtrIsExternal = false;
     //    currFbPtr = NULL;
     //}
-    
+    xSemaphoreTake(fbLock, portMAX_DELAY);
+
     bufferSize = windowWidth * windowHeight * (useColorPalette ? 1 : 2);
     currFbPtr = heap_caps_realloc(currFbPtr, bufferSize, MALLOC_CAP_8BIT);
-    
     memset(currFbPtr, 0, bufferSize);
+
+    xSemaphoreGive(fbLock);
 }
 
 
@@ -617,12 +635,21 @@ void spi_lcd_init()
         cmd++;
     }
 
+    // Initialize SPI transactions with DMA buffers
+    for (int x = 0; x < NO_SIM_TRANS; x++)
+    {
+        memset(&spiTrans[x], 0, sizeof(spi_transaction_t));
+        spiTrans[x].length = PIXELS_PER_TRANS * 16;
+        spiTrans[x].user = (void *)1;
+        spiTrans[x].tx_buffer = heap_caps_malloc(PIXELS_PER_TRANS * 2, MALLOC_CAP_DMA);
+        assert(spiTrans[x].tx_buffer);
+    }
+
     odroid_spi_bus_release();
 
     spi_lcd_setFont(tft_Dejavu24);
     spi_lcd_usePalette(false);
-    spi_lcd_useFrameBuffer(false); // Maybe this should be true?
-    spi_lcd_clear();
+    spi_lcd_fb_enable();
     
     //Enable backlight
     backlight_init();

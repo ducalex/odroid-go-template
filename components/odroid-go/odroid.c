@@ -18,31 +18,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "esp_heap_caps.h"
 #include "odroid.h"
 
 static SemaphoreHandle_t spiLock = NULL;
 
-size_t free_bytes_total()
-{
-  multi_heap_info_t info;
-  heap_caps_get_info(&info, MALLOC_CAP_DEFAULT);
-  return info.total_free_bytes;
-}
-
-size_t free_bytes_internal()
-{
-  multi_heap_info_t info;
-  heap_caps_get_info(&info, MALLOC_CAP_INTERNAL);
-  return info.total_free_bytes;
-}
-
-size_t free_bytes_spiram()
-{
-  multi_heap_info_t info;
-  heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
-  return info.total_free_bytes;
-}
 
 void odroid_system_init()
 {
@@ -69,20 +48,24 @@ void odroid_system_init()
     odroid_sound_init();
 }
 
+
 void odroid_system_led_set(int value)
 {
     gpio_set_level(GPIO_NUM_2, value);
 }
+
 
 void odroid_system_sleep()
 {
 
 }
 
+
 int odroid_system_battery_level()
 {
     return 0;
 }
+
 
 void odroid_fatal_error(char *error)
 {
@@ -98,12 +81,45 @@ void odroid_fatal_error(char *error)
     exit(-1);
 }
 
+
 void inline odroid_spi_bus_acquire()
 {
     xSemaphoreTake(spiLock, portMAX_DELAY);
 }
 
+
 void inline odroid_spi_bus_release()
 {
     xSemaphoreGive(spiLock);
+}
+
+
+size_t odroid_mem_free(uint32_t caps)
+{
+  multi_heap_info_t info;
+  heap_caps_get_info(&info, caps);
+  return info.total_free_bytes;
+}
+
+
+uint32_t odroid_millis()
+{
+    return (uint32_t)(esp_timer_get_time() / 1000);
+}
+
+
+void odroid_delay(uint32_t ms)
+{
+    vTaskDelay(ms / portTICK_PERIOD_MS);
+}
+
+
+void odroid_usleep(uint32_t us)
+{
+    uint64_t timeout = esp_timer_get_time() + us;
+
+    while (timeout > esp_timer_get_time())
+    {
+        asm volatile ("nop");
+    }
 }

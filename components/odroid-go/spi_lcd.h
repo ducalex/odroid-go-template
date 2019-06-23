@@ -26,7 +26,7 @@ typedef struct {
       int xOffset;
       int xDelta;
       uint16_t dataPtr;
-} propFont;
+} fontCharacter_t;
 
 #define MADCTL_MY 0x80
 #define MADCTL_MX 0x40
@@ -55,6 +55,7 @@ typedef struct {
 #define LCD_COLOR_MIDNIGHT_BLUE            LCD_HEX(0x18CE)
 #define LCD_COLOR_INDIGO                   LCD_HEX(0x4810)
 #define LCD_COLOR_PURPLE                   LCD_HEX(0x8010)
+#define LCD_COLOR_PINK                     LCD_HEX(0xFDF9)
 #define LCD_COLOR_MAGENTA                  LCD_HEX(0xF81F)
 #define LCD_COLOR_SNOW                     LCD_HEX(0xFFDE)
 #define LCD_COLOR_DIM_GRAY                 LCD_HEX(0x6B4D)
@@ -70,9 +71,6 @@ void backlight_percentage_set(short level);
 
 void spi_lcd_init();
 void spi_lcd_deinit();
-void spi_lcd_cmd(uint8_t cmd);
-void spi_lcd_write8(uint8_t data);
-void spi_lcd_write16(uint16_t data);
 void spi_lcd_write(void *data, int len, int dc);
 void spi_lcd_setWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 void spi_lcd_wait_finish();
@@ -85,14 +83,15 @@ void spi_lcd_setFont(const uint8_t *font);
 void spi_lcd_setFontColor(uint16_t color);
 void spi_lcd_print(int x, int y, char *string);
 void spi_lcd_printf(int x, int y, char *string, ...);
+void spi_lcd_flush();
 void spi_lcd_update();
-void spi_lcd_useFrameBuffer(bool use);
+void spi_lcd_fb_enable();
+void spi_lcd_fb_disable();
 void spi_lcd_fb_setPtr(void *buffer);
 void*spi_lcd_fb_getPtr();
 void spi_lcd_fb_alloc();
-void spi_lcd_fb_clear();
-void spi_lcd_fb_flush(); // fb_flush sends the buffer to the display now, it's synchronous.
-void spi_lcd_fb_update(); // fb_update tells the display task it's time to redraw, it's async. Could be named notify?
+void spi_lcd_fb_flush(); // fb_flush sends the buffer to the display now, it's synchronous. NOOP if FB disabled.
+void spi_lcd_fb_update(); // fb_update tells the display task it's time to redraw, it's async. NOOP if FB disabled.
 void spi_lcd_fb_write(void *buffer);
 
 extern const unsigned char tft_Dejavu12[];
