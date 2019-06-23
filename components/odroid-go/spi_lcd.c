@@ -39,6 +39,9 @@
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 
+#define NO_SIM_TRANS 5        //Amount of SPI transfers to queue in parallel
+#define PIXELS_PER_TRANS SCREEN_WIDTH * 2 //in 16-bit words
+
 static uint16_t windowWidth = SCREEN_WIDTH;
 static uint16_t windowHeight = SCREEN_HEIGHT;
 static uint16_t windowXOffset = 0;
@@ -55,7 +58,7 @@ static bool currFbPtrIsExternal = false;
 static uint32_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT;
 static bool useFrameBuffer = false;
 
-static int16_t defaultPalette[256] = {0, LCD_RGB(255, 255, 255), LCD_RGB(255, 0, 0), LCD_RGB(0, 255, 0), LCD_RGB(0, 0, 255)};
+static int16_t defaultPalette[256] = {LCD_COLOR_BLACK, LCD_COLOR_WHITE, LCD_COLOR_RED, LCD_COLOR_GREEN, LCD_COLOR_BLUE};
 static int16_t colorPalette[256];
 static bool useColorPalette = false;
 
@@ -63,14 +66,10 @@ static const uint8_t *displayFont;
 static propFont	fontChar;
 static uint8_t font_height, font_width;
 static bool enablePrintWrap = true;
-static uint16_t fontColor = 0xFFFF;
+static uint16_t fontColor = LCD_COLOR_WHITE;
 
 SemaphoreHandle_t dispSem = NULL;
 SemaphoreHandle_t fbLock = NULL;
-
-#define NO_SIM_TRANS 5        //Amount of SPI transfers to queue in parallel
-#define PIXELS_PER_TRANS SCREEN_WIDTH * 2 //in 16-bit words
-#define htons(a) ((a) << 8) | ((a) >> 8)
 
 // LCD initialization commands
 typedef struct
@@ -188,6 +187,7 @@ void spi_lcd_write8(uint8_t data)
 
 void spi_lcd_write16(uint16_t data)
 {
+    data = LCD_HTONS(data);
     spi_lcd_write(&data, 2, 1);
 }
 
@@ -226,12 +226,12 @@ void spi_lcd_setWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 void spi_lcd_clip(int x0, int y0, int x1, int y1)
 {
     spi_lcd_cmd(0x2A); //Column Address Set
-    spi_lcd_write16(htons(x0)); //Start Col
-    spi_lcd_write16(htons(x1)); //End Col
+    spi_lcd_write16(x0); //Start Col
+    spi_lcd_write16(x1); //End Col
 
     spi_lcd_cmd(0x2B); // Page address
-    spi_lcd_write16(htons(y0)); //Start page
-    spi_lcd_write16(htons(y1)); //End page
+    spi_lcd_write16(y0); //Start page
+    spi_lcd_write16(y1); //End page
 }
 
 
@@ -239,13 +239,13 @@ void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
 {
     // maybe we should htons the color and make LCD_RGB not do it?
     if (useFrameBuffer) {
-        int start = y0 * windowWidth + x0;
-        int end   = start + (h * w);
-        for (int pos = start; pos <= end; pos++) {
-            if (useColorPalette) {
-                ((uint8_t *)currFbPtr)[pos] = color;
-            } else {
-                ((uint16_t *)currFbPtr)[pos] = color;
+        for (int x = x0; x < (x0 + w); x++) {
+            for (int y = y0; y < (y0 + h); y++) {
+                if (useColorPalette) {
+                    ((uint8_t *)currFbPtr)[(y  * windowWidth) + x] = color;
+                } else {
+                    ((uint16_t *)currFbPtr)[(y  * windowWidth) + x] = color;
+                }
             }
         }
     } else {
@@ -253,6 +253,10 @@ void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
 
         spi_lcd_clip(x0, y0, x0 + w, y0 + h);
         spi_lcd_cmd(0x2C); // Write
+        
+        if (useColorPalette) {
+            color = colorPalette[color];
+        }
         
         uint16_t buffer[128] = {color};
 
@@ -418,13 +422,13 @@ void spi_lcd_printf(int x, int y, char *format, ...)
 }
 
 
-void spi_lcd_fb_flush()
+void spi_lcd_update()
 {
-    if (!useFrameBuffer || !currFbPtr) return;
+    if (useFrameBuffer) {
+        spi_lcd_fb_update();
+    }
+}
 
-    static uint16_t *dmamem[NO_SIM_TRANS];
-    static spi_transaction_t trans[NO_SIM_TRANS];
-    static bool initialized = false;
 
     if (!initialized) {  // Initialize parallel transactions
         for (int x = 0; x < NO_SIM_TRANS; x++)

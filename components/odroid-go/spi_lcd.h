@@ -38,9 +38,30 @@ typedef struct {
 #define LCD_CMD 0
 #define LCD_DATA 1
 
-#define LCD_RGB(r, g, b) \
-      (((((r / 255 * 31) & 0x1F) << 11) | (((g / 255 * 62) & 0x3F) << 5) | (((b / 255 * 31) & 0x1F))) << 8 \
-      | ((((r / 255 * 31) & 0x1F) << 11) | (((g / 255 * 62) & 0x3F) << 5) | (((b / 255 * 31) & 0x1F))) >> 8) & 0xFFFF
+#define LCD_HTONS(a)      ((((a) << 8) | ((a) >> 8)) & 0xFFFF)
+#define LCD_HEX(x)        (LCD_HTONS(x))
+#define LCD_RGB(r, g, b)  (LCD_HTONS((((r / 255 * 31) & 0x1F) << 11) | (((g / 255 * 62) & 0x3F) << 5) | (((b / 255 * 31) & 0x1F))))
+
+#define LCD_COLOR_BLACK                    LCD_HEX(0x0000)
+#define LCD_COLOR_WHITE                    LCD_HEX(0xFFFF)
+#define LCD_COLOR_RED                      LCD_HEX(0xF800)
+#define LCD_COLOR_GREEN                    LCD_HEX(0x07E0)
+#define LCD_COLOR_BLUE                     LCD_HEX(0x001F)
+#define LCD_COLOR_ORANGE                   LCD_HEX(0xFD20)
+#define LCD_COLOR_YELLOW                   LCD_HEX(0xFFE0)
+#define LCD_COLOR_TEAL                     LCD_HEX(0x0410)
+#define LCD_COLOR_CYAN                     LCD_HEX(0x07FF)
+#define LCD_COLOR_CADET_BLUE               LCD_HEX(0x64F3)
+#define LCD_COLOR_MIDNIGHT_BLUE            LCD_HEX(0x18CE)
+#define LCD_COLOR_INDIGO                   LCD_HEX(0x4810)
+#define LCD_COLOR_PURPLE                   LCD_HEX(0x8010)
+#define LCD_COLOR_MAGENTA                  LCD_HEX(0xF81F)
+#define LCD_COLOR_SNOW                     LCD_HEX(0xFFDE)
+#define LCD_COLOR_DIM_GRAY                 LCD_HEX(0x6B4D)
+#define LCD_COLOR_GRAY                     LCD_HEX(0x8410)
+#define LCD_COLOR_DARK_GRAY                LCD_HEX(0xAD55)
+#define LCD_COLOR_SILVER                   LCD_HEX(0xBDF7)
+#define LCD_COLOR_LIGHT_GRAY               LCD_HEX(0xD69A)
 
 #define LCD_DEFAULT_PALETTE NULL
 
@@ -64,6 +85,7 @@ void spi_lcd_setFont(const uint8_t *font);
 void spi_lcd_setFontColor(uint16_t color);
 void spi_lcd_print(int x, int y, char *string);
 void spi_lcd_printf(int x, int y, char *string, ...);
+void spi_lcd_update();
 void spi_lcd_useFrameBuffer(bool use);
 void spi_lcd_fb_setPtr(void *buffer);
 void*spi_lcd_fb_getPtr();
