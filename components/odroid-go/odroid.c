@@ -71,7 +71,7 @@ void odroid_fatal_error(char *error)
 {
     printf("Error: %s\n", error);
     spi_lcd_init(); // This is really only called if the error occurs in the SD card init
-    spi_lcd_useFrameBuffer(false); // Send the error directly to the LCD
+    spi_lcd_fb_disable(); // Send the error directly to the LCD
     spi_lcd_usePalette(false);
     spi_lcd_setFontColor(LCD_COLOR_RED);
     spi_lcd_clear();

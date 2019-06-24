@@ -1,46 +1,44 @@
-// Default font
-
-// ========================================================================
 // This comes with no warranty, implied or otherwise
 
 // This data structure was designed to support Proportional fonts
-// fonts. Individual characters do not have to be multiples of 8 bits wide.
+// on Arduinos. It can however handle any ttf font that has been converted
+// using the conversion program. These could be fixed width or proportional 
+// fonts. Individual characters do not have to be multiples of 8 bits wide. 
 // Any width is fine and does not need to be fixed.
 
 // The data bits are packed to minimize data requirements, but the tradeoff
 // is that a header is required per character.
-
-// Header Format:
-// ------------------------------------------------
-// Character Width (Used as a marker to indicate use this format. i.e.: = 0x00)
-// Character Height
-// First Character (Reserved. 0x00)
-// Number Of Characters (Reserved. 0x00)
-
-// Individual Character Format:
-// ----------------------------
-// Character Code
-// Adjusted Y Offset	(start Y of visible pixels)
-// Width				(width of the visible pixels)
-// Height				(height of the visible pixels)
-// xOffset				(start X of visible pixels)
-// xDelta				(the distance to move the cursor. Effective width of the character.)
-// Data[n]
-
-// NOTE: You can remove any of these characters if they are not needed in
-// your application. The first character number in each Glyph indicates
-// the ASCII character code. Therefore, these do not have to be sequential.
-// Just remove all the content for a particular character to save space.
-// ========================================================================
 
 // dejavu
 // Point Size   : 12
 // Memory usage : 1158 bytes
 // # characters : 95
 
-const unsigned char tft_Dejavu12[] =
+// Header Format (to make Arduino UTFT Compatible):
+// ------------------------------------------------
+// Character Width (Used as a marker to indicate use this format. i.e.: = 0x00)
+// Character Height
+// First Character (Reserved. 0x00)
+// Number Of Characters (Reserved. 0x00)
+
+const unsigned char font_DejaVu12[] =
 {
 0x00, 0x0B, 0x86, 0x04,
+
+// Individual Character Format:
+// ----------------------------
+// Character Code
+// Adjusted Y Offset
+// Width
+// Height
+// xOffset
+// xDelta (the distance to move the cursor. Effective width of the character.)
+// Data[n]
+
+// NOTE: You can remove any of these characters if they are not needed in
+// your application. The first character number in each Glyph indicates
+// the ASCII character code. Therefore, these do not have to be sequential.
+// Just remove all the content for a particular character to save space.
 
 // ' '
 0x20,0x0A,0x00,0x00,0x00,0x04,

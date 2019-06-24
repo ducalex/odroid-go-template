@@ -9,5 +9,7 @@
 
 #CFLAGS += -O2
 
+COMPONENT_SRCDIRS := . fonts
+
 #include $(IDF_PATH)/make/component_common.mk
 

@@ -29,11 +29,6 @@
 #include "driver/ledc.h"
 
 #include "sdkconfig.h"
-
-#include "fonts/DejaVu12.h"
-#include "fonts/DejaVuSans18.h"
-#include "fonts/DejaVuSans24.h"
-
 #include "odroid.h"
 
 #define SCREEN_WIDTH 320
@@ -359,6 +354,7 @@ static int spi_lcd_drawChar(int x, int y, uint8_t c)
 			if ((ch & mask) !=0) {
 				cx = (uint16_t)(x+fontChar.xOffset+i);
 				cy = (uint16_t)(y+j+fontChar.adjYOffset);
+                // Should render to a ~16x16 buffer then clip and flush, it would be a lot faster
 				spi_lcd_drawPixel(cx, cy, fontColor);
 			}
 			mask >>= 1;
@@ -647,7 +643,7 @@ void spi_lcd_init()
 
     odroid_spi_bus_release();
 
-    spi_lcd_setFont(tft_Dejavu24);
+    spi_lcd_setFont(font_DejaVu18);
     spi_lcd_usePalette(false);
     spi_lcd_fb_enable();
     

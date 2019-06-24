@@ -32,9 +32,11 @@ void app_main()
 		spi_lcd_clear();
 		time = odroid_millis();
 		for (int i = 0; i < 20; i++) {
+			spi_lcd_setFont(font_Ubuntu16);
 			spi_lcd_setFontColor(LCD_COLOR_WHITE);
-			spi_lcd_print(0, 0, "Hello World from no frame buffer!");
+			spi_lcd_print(0, 0, "Drawing with no frame buffer!");
 			spi_lcd_setFontColor(LCD_COLOR_PINK);
+			spi_lcd_setFont(font_DejaVuMono24);
 			spi_lcd_printf(50, 50, "%d %d", odroid_mem_free(MALLOC_CAP_INTERNAL), odroid_mem_free(MALLOC_CAP_SPIRAM));
 			spi_lcd_setFontColor(LCD_COLOR_BLACK);
 			spi_lcd_fill(100, 100, 100, 100, LCD_COLOR_BLUE);
@@ -46,9 +48,11 @@ void app_main()
 		spi_lcd_clear();
 		time = odroid_millis();
 		for (int i = 0; i < 60; i++) {
+			spi_lcd_setFont(font_DejaVu18);
 			spi_lcd_setFontColor(LCD_COLOR_WHITE);
-			spi_lcd_print(0, 0, "Hello World from frame buffer!");
+			spi_lcd_print(0, 0, "Drawing with a frame buffer!");
 			spi_lcd_setFontColor(LCD_COLOR_PINK);
+			spi_lcd_setFont(font_DejaVuMono24);
 			spi_lcd_printf(50, 50, "%d %d", odroid_mem_free(MALLOC_CAP_INTERNAL), odroid_mem_free(MALLOC_CAP_SPIRAM));
 			spi_lcd_setFontColor(LCD_COLOR_BLACK);
 			spi_lcd_fill(100, 100, 100, 100, LCD_COLOR_PURPLE);
@@ -60,8 +64,9 @@ void app_main()
 		spi_lcd_clear();
 		time = odroid_millis();
 		for (int i = 0; i < 60; i++) {
+			spi_lcd_setFont(font_DejaVu24);
 			spi_lcd_setFontColor(LCD_COLOR_WHITE);
-			spi_lcd_print(0, 0, "Hello World from frame buffer NB!");
+			spi_lcd_print(0, 0, "Hello! (NB)");
 			spi_lcd_setFontColor(LCD_COLOR_PINK);
 			spi_lcd_printf(50, 50, "%d %d", odroid_mem_free(MALLOC_CAP_INTERNAL), odroid_mem_free(MALLOC_CAP_SPIRAM));
 			spi_lcd_setFontColor(LCD_COLOR_BLACK);
@@ -70,5 +75,7 @@ void app_main()
 			time = odroid_millis();
 			spi_lcd_update();
 		}
+
+		odroid_delay(1000);
 	}
 }
