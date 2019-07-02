@@ -24,8 +24,10 @@
 static SemaphoreHandle_t spiLock = NULL;
 
 
-void odroid_system_init()
+void odroid_system_init(bool init_sdcard, bool init_sound)
 {
+    ESP_LOGI(__func__, "Initializing ODROID-GO hardware.");
+
     // SPI
     spiLock = xSemaphoreCreateMutex();
 
@@ -33,20 +35,24 @@ void odroid_system_init()
 	gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
 	gpio_set_level(GPIO_NUM_2, 0);
     
-    // SD Card (needs to be before LCD)
-    odroid_sdcard_init();
+    // SD Card (needs to be before LCD) (optional)
+    if (init_sdcard) {
+        odroid_sdcard_init();
+    }
 
-    // LCD
+    // LCD (always desirable)
     spi_lcd_init();
 
     // NVS Flash
     // nvs_flash_init();
 
-    // Input
+    // Input (always desirable)
     odroid_input_init();
     
-    // Sound
-    odroid_sound_init();
+    // Sound  (optional)
+    if (init_sound) {
+        odroid_sound_init();
+    }
 }
 
 
@@ -70,7 +76,7 @@ int odroid_system_battery_level()
 
 void odroid_fatal_error(char *error)
 {
-    printf("Error: %s\n", error);
+    ESP_LOGE(__func__, "Error: %s", error);
     spi_lcd_init(); // This is really only called if the error occurs in the SD card init
     spi_lcd_fb_disable(); // Send the error directly to the LCD
     spi_lcd_usePalette(false);
@@ -107,7 +113,6 @@ uint32_t odroid_millis()
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
 }
-
 
 
 void odroid_delay(uint32_t ms)

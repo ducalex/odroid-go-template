@@ -32,7 +32,7 @@ void odroid_sound_init(void)
 {
     if (sound_initialized) return;
     
-    printf("odroid_sound_init: Initializing sound.\n");
+    ESP_LOGI(__func__, "Initializing sound.");
 
     static const i2s_config_t i2s_config = {
         .mode = I2S_MODE_MASTER | I2S_MODE_TX | /*I2S_MODE_PDM,*/ I2S_MODE_DAC_BUILT_IN,

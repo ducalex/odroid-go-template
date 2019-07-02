@@ -33,7 +33,7 @@ void odroid_sdcard_init()
 {
     if (sdcard_initialized) return;
     
-    printf("odroid_sdcard_init: Initializing SD Card.\n");
+    ESP_LOGI(__func__, "Initializing SD Card.");
 
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.slot = HSPI_HOST; // HSPI_HOST;
@@ -84,14 +84,14 @@ int odroid_sdcard_read_file(char const *name, char **buffer)
         fclose(fp);
 
         if (read != length) {
-            printf("odroid_sdcard_read_file: Length mismatch (Got %d, expected %d)\n", read, length);
+            ESP_LOGW(__func__, "Length mismatch (Got %d, expected %d)", read, length);
         }
         
         odroid_spi_bus_release();
         return read;
     }
     
-    printf("odroid_sdcard_read_file: failed to open %s\n", name);
+    ESP_LOGE(__func__, "failed to open %s", name);
 
     odroid_spi_bus_release();
     return -1;
@@ -108,14 +108,14 @@ int odroid_sdcard_write_file(char const *name, void *source, int length)
         fclose(fp);
         
         if (written != length) {
-            printf("odroid_sdcard_write_file: Length mismatch (Got %d, expected %d)\n", written, length);
+            ESP_LOGW(__func__, "Length mismatch (Got %d, expected %d)", written, length);
         }
         
         odroid_spi_bus_release();
         return written;
     }
 
-    printf("odroid_sdcard_write_file: failed to open %s\n", name);
+    ESP_LOGE(__func__, "failed to open %s", name);
 
     odroid_spi_bus_release();
     return -1;

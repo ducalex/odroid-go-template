@@ -19,6 +19,7 @@
 #define _ODROID_H_
 
 #include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "spi_lcd.h"
 #include "sdcard.h"
 #include "sound.h"
@@ -37,7 +38,7 @@
 //#define ODROID_INPUT_TASK_DISABLE
 #define ODROID_TASKS_USE_CORE 1
 
-void odroid_system_init();
+void odroid_system_init(bool init_sdcard, bool init_sound);
 void odroid_system_led_set(int value);
 void odroid_spi_bus_acquire();
 void odroid_spi_bus_release();

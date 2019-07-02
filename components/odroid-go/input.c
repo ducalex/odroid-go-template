@@ -63,7 +63,7 @@ void odroid_input_read_raw(uint8_t *values)
 
 static void odroid_input_task(void *arg)
 {
-	printf("odroid_input_task: Input task started.\n");
+	ESP_LOGI(__func__, "Input task started.");
 
     int i, changes;
 
@@ -164,7 +164,7 @@ void odroid_input_init(void)
 		return;
 	}
 
-    printf("odroid_input_init: Initializing input.\n");
+    ESP_LOGI(__func__, "Initializing input.");
 
     gpio_set_direction(ODROID_GAMEPAD_IO_SELECT, GPIO_MODE_INPUT);
     gpio_set_pull_mode(ODROID_GAMEPAD_IO_SELECT, GPIO_PULLUP_ONLY);

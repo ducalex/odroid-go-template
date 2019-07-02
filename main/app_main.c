@@ -21,8 +21,8 @@ void input_callback(odroid_input_state state)
 
 void app_main()
 {
-	printf("app_main(): Initializing Odroid GO stuff\n");
-	odroid_system_init();
+	printf("###### Demo app for odroid-go-std-lib ######\n");
+	odroid_system_init(false, false);
 	odroid_input_set_callback(&input_callback);
 
 	int time = 0;

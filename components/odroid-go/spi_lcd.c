@@ -564,6 +564,8 @@ void spi_lcd_fb_update()
 
 void displayTask(void *arg)
 {
+    ESP_LOGI(__func__, "Display task started.");
+    
     while (1)
     {
         xSemaphoreTake(dispSem, portMAX_DELAY);
@@ -585,7 +587,7 @@ void spi_lcd_init()
 {
     if (lcd_initialized) return;
     
-    printf("spi_lcd_init: Initializing SPI LCD.\n");
+    ESP_LOGI(__func__, "Initializing SPI LCD.");
 
     dispSem = xSemaphoreCreateBinary();
     fbLock = xSemaphoreCreateMutex();
@@ -652,7 +654,6 @@ void spi_lcd_init()
 
     lcd_initialized = true;
 #ifndef ODROID_LCD_TASK_DISABLE
-    printf("spi_lcd_init(): Starting display task.\n");
     xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, task, ODROID_TASKS_USE_CORE);
 #endif
 }
