@@ -18,6 +18,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "unistd.h"
 #include "odroid.h"
 
 static SemaphoreHandle_t spiLock = NULL;
@@ -108,18 +109,8 @@ uint32_t odroid_millis()
 }
 
 
+
 void odroid_delay(uint32_t ms)
 {
-    vTaskDelay(ms / portTICK_PERIOD_MS);
-}
-
-
-void odroid_usleep(uint32_t us)
-{
-    uint64_t timeout = esp_timer_get_time() + us;
-
-    while (timeout > esp_timer_get_time())
-    {
-        asm volatile ("nop");
-    }
+    usleep(ms * 1000);
 }

@@ -43,7 +43,6 @@ void odroid_spi_bus_acquire();
 void odroid_spi_bus_release();
 void odroid_fatal_error(char *error);
 void odroid_delay(uint32_t ms);
-void odroid_usleep(uint32_t us);
 size_t odroid_mem_free(uint32_t caps);
 uint32_t odroid_millis();
 
