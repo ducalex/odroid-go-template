@@ -69,7 +69,7 @@ typedef struct {
 short backlight_percentage_get(void);
 void backlight_percentage_set(short level);
 
-void spi_lcd_init();
+void spi_lcd_init(bool use_update_task);
 void spi_lcd_deinit();
 void spi_lcd_write(void *data, int len, int dc);
 void spi_lcd_setWindow(uint16_t x, uint16_t y, uint16_t width, uint16_t height);

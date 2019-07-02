@@ -18,16 +18,23 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include "unistd.h"
 #include "odroid.h"
 
 static SemaphoreHandle_t spiLock = NULL;
 
 
-void odroid_system_init(bool init_sdcard, bool init_sound)
+void odroid_system_init(odroid_config_t *config)
 {
     ESP_LOGI(__func__, "Initializing ODROID-GO hardware.");
-
+    
+    if (config == NULL) {
+        odroid_config_t cfg = ODROID_DEFAULT_CONFIG();
+        config = &cfg;
+    }
+    
     // SPI
     spiLock = xSemaphoreCreateMutex();
 
@@ -36,21 +43,27 @@ void odroid_system_init(bool init_sdcard, bool init_sound)
 	gpio_set_level(GPIO_NUM_2, 0);
     
     // SD Card (needs to be before LCD) (optional)
-    if (init_sdcard) {
+    if (config->init_sdcard) {
         odroid_sdcard_init();
     }
 
     // LCD (always desirable)
-    spi_lcd_init();
+    spi_lcd_init(config->use_lcd_task);
 
     // NVS Flash
-    // nvs_flash_init();
+    if (config->init_nvs) {
+        esp_err_t err = nvs_flash_init();
+        if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+            nvs_flash_erase();
+            nvs_flash_init();
+        }
+    }
 
     // Input (always desirable)
-    odroid_input_init();
+    odroid_input_init(config->use_input_task);
     
     // Sound  (optional)
-    if (init_sound) {
+    if (config->init_sound) {
         odroid_sound_init();
     }
 }
@@ -77,7 +90,7 @@ int odroid_system_battery_level()
 void odroid_fatal_error(char *error)
 {
     ESP_LOGE(__func__, "Error: %s", error);
-    spi_lcd_init(); // This is really only called if the error occurs in the SD card init
+    spi_lcd_init(false); // This is really only called if the error occurs in the SD card init
     spi_lcd_fb_disable(); // Send the error directly to the LCD
     spi_lcd_usePalette(false);
     spi_lcd_setFontColor(LCD_COLOR_RED);

@@ -34,11 +34,23 @@
 #define PIN_NUM_LCD_BCKL 14
 #define SPI_DMA_CHANNEL 2
 
-//#define ODROID_LCD_TASK_DISABLE
-//#define ODROID_INPUT_TASK_DISABLE
 #define ODROID_TASKS_USE_CORE 1
 
-void odroid_system_init(bool init_sdcard, bool init_sound);
+typedef struct
+{
+    bool init_sdcard;
+    bool init_sound;
+    bool init_nvs;
+    bool use_input_task;
+    bool use_lcd_task;
+    int  cpu_core;
+} odroid_config_t;
+
+#define ODROID_DEFAULT_CONFIG() {\
+    .init_sdcard = true, .init_sound = false, .init_nvs = false, \
+    .use_input_task = true, .use_lcd_task = true, .cpu_core = 1}
+
+void odroid_system_init(odroid_config_t *config);
 void odroid_system_led_set(int value);
 void odroid_spi_bus_acquire();
 void odroid_spi_bus_release();

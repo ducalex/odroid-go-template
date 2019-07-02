@@ -583,7 +583,7 @@ void spi_lcd_deinit()
 }
 
 
-void spi_lcd_init()
+void spi_lcd_init(bool use_update_task)
 {
     if (lcd_initialized) return;
     
@@ -653,7 +653,7 @@ void spi_lcd_init()
     backlight_init();
 
     lcd_initialized = true;
-#ifndef ODROID_LCD_TASK_DISABLE
-    xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, task, ODROID_TASKS_USE_CORE);
-#endif
+    if (use_update_task) {
+        xTaskCreatePinnedToCore(&displayTask, "display", 6000, NULL, 6, task, ODROID_TASKS_USE_CORE);
+    }
 }

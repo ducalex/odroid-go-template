@@ -158,7 +158,7 @@ int odroid_input_wait_for_button_press(int ticks)
 }
 
 
-void odroid_input_init(void)
+void odroid_input_init(bool use_polling_task)
 {
 	if (input_gamepad_initialized) {
 		return;
@@ -189,8 +189,8 @@ void odroid_input_init(void)
 
     input_gamepad_initialized = true;
 
-#ifndef ODROID_INPUT_TASK_DISABLE
-    // Start background polling
-    xTaskCreatePinnedToCore(&odroid_input_task, "odroid_input_task", 1024 * 4, NULL, 6, NULL, ODROID_TASKS_USE_CORE);
-#endif
+    if (use_polling_task) {
+        // Start background polling
+        xTaskCreatePinnedToCore(&odroid_input_task, "odroid_input_task", 1024 * 4, NULL, 6, NULL, ODROID_TASKS_USE_CORE);
+    }
 }

@@ -22,7 +22,13 @@ void input_callback(odroid_input_state state)
 void app_main()
 {
 	printf("###### Demo app for odroid-go-std-lib ######\n");
-	odroid_system_init(false, false);
+
+	odroid_config_t config = ODROID_DEFAULT_CONFIG();
+	config.init_sdcard = false;
+	config.init_sound = false;
+	config.init_nvs = false;
+	
+	odroid_system_init(&config);
 	odroid_input_set_callback(&input_callback);
 
 	int time = 0;
