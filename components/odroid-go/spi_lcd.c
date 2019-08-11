@@ -1,17 +1,17 @@
-/* 
+/*
  * This file is part of odroid-go-std-lib.
  * Copyright (c) 2019 ducalex.
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3.
  *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License 
+ * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -152,6 +152,11 @@ void backlight_percentage_set(short level)
     if (level > 100) level = 100;
     if (level < 10) level = 10;
 
+    if (odroid_nvs_handle && backlightLevel != level) {
+        nvs_set_u8(odroid_nvs_handle, "screen_level", level);
+        nvs_commit(odroid_nvs_handle);
+    }
+
     backlightLevel = level;
 
     int duty = TFT_LED_DUTY_MAX * (backlightLevel * 0.01f);
@@ -254,11 +259,11 @@ void spi_lcd_fill(int x0, int y0, int w, int h, uint16_t color)
 
         spi_lcd_clip(x0, y0, x0 + w, y0 + h);
         spi_lcd_cmd(0x2C); // Write
-        
+
         if (useColorPalette) {
             color = colorPalette[color];
         }
-        
+
         uint16_t buffer[4] = {color, color, color, color};
 
         for(int pixels = w * h; pixels > 0; pixels -= 4) {
@@ -278,7 +283,7 @@ void inline spi_lcd_drawPixel(int x, int y, uint16_t color)
 void spi_lcd_usePalette(bool use)
 {
     useColorPalette = use;
-    
+
     if (useFrameBuffer) {
         spi_lcd_fb_alloc(); // Resize framebuffer
     }
@@ -309,7 +314,7 @@ void spi_lcd_clear()
 static uint8_t getCharPtr(uint8_t c)
 {
     fontChar.dataPtr = 4;
-    
+
     do {
         fontChar.charCode = displayFont[fontChar.dataPtr++];
         fontChar.adjYOffset = displayFont[fontChar.dataPtr++];
@@ -386,7 +391,7 @@ void spi_lcd_print(int x, int y, char *string)
 {
     int orig_x = x;
     //int orig_y = y;
-    
+
     for (int i = 0; i < strlen(string); i++) {
         if ((enablePrintWrap && x >= (windowWidth - font_width)) || string[i] == '\n') {
             y += font_height + 5;
@@ -406,7 +411,7 @@ void spi_lcd_printf(int x, int y, char *format, ...)
     va_start(argptr, format);
     vsprintf(buffer, format, argptr);
     va_end(argptr);
-    
+
     spi_lcd_print(x, y, buffer);
 }
 
@@ -565,7 +570,7 @@ void spi_lcd_fb_update()
 void displayTask(void *arg)
 {
     ESP_LOGI(__func__, "Display task started.");
-    
+
     while (1)
     {
         xSemaphoreTake(dispSem, portMAX_DELAY);
@@ -586,7 +591,7 @@ void spi_lcd_deinit()
 void spi_lcd_init(bool use_update_task)
 {
     if (lcd_initialized) return;
-    
+
     ESP_LOGI(__func__, "Initializing SPI LCD.");
 
     dispSem = xSemaphoreCreateBinary();
@@ -648,7 +653,11 @@ void spi_lcd_init(bool use_update_task)
     spi_lcd_setFont(font_DejaVu18);
     spi_lcd_usePalette(false);
     spi_lcd_fb_enable();
-    
+
+    if (odroid_nvs_handle) {
+        nvs_get_u8(odroid_nvs_handle, "screen_level", &backlightLevel);
+    }
+
     //Enable backlight
     backlight_init();
 

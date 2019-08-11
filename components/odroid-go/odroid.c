@@ -1,54 +1,34 @@
-/* 
+/*
  * This file is part of odroid-go-std-lib.
  * Copyright (c) 2019 ducalex.
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3.
  *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License 
+ * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 #include "unistd.h"
 #include "odroid.h"
 
-static SemaphoreHandle_t spiLock = NULL;
-
+SemaphoreHandle_t odroid_spi_lock = NULL;
+nvs_handle odroid_nvs_handle = 0;
 
 void odroid_system_init(odroid_config_t *config)
 {
     ESP_LOGI(__func__, "Initializing ODROID-GO hardware.");
-    
+
     if (config == NULL) {
         odroid_config_t cfg = ODROID_DEFAULT_CONFIG();
         config = &cfg;
     }
-    
-    // SPI
-    spiLock = xSemaphoreCreateMutex();
-
-    // LED
-	gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
-	gpio_set_level(GPIO_NUM_2, 0);
-    
-    // SD Card (needs to be before LCD) (optional)
-    if (config->init_sdcard) {
-        odroid_sdcard_init();
-    }
-
-    // LCD (always desirable)
-    spi_lcd_init(config->use_lcd_task);
 
     // NVS Flash
     if (config->init_nvs) {
@@ -57,11 +37,27 @@ void odroid_system_init(odroid_config_t *config)
             nvs_flash_erase();
             nvs_flash_init();
         }
+        nvs_open("odroid", NVS_READWRITE, odroid_nvs_handle);
     }
+
+    // SPI
+    odroid_spi_lock = xSemaphoreCreateMutex();
+
+    // LED
+	gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+	gpio_set_level(GPIO_NUM_2, 0);
+
+    // SD Card (needs to be before LCD) (optional)
+    if (config->init_sdcard) {
+        odroid_sdcard_init();
+    }
+
+    // LCD (always desirable)
+    spi_lcd_init(config->use_lcd_task);
 
     // Input (always desirable)
     odroid_input_init(config->use_input_task);
-    
+
     // Sound  (optional)
     if (config->init_sound) {
         odroid_sound_init();
@@ -104,13 +100,13 @@ void odroid_fatal_error(char *error)
 
 void inline odroid_spi_bus_acquire()
 {
-    xSemaphoreTake(spiLock, portMAX_DELAY);
+    xSemaphoreTake(odroid_spi_lock, portMAX_DELAY);
 }
 
 
 void inline odroid_spi_bus_release()
 {
-    xSemaphoreGive(spiLock);
+    xSemaphoreGive(odroid_spi_lock);
 }
 
 

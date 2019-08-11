@@ -1,23 +1,28 @@
-/* 
+/*
  * This file is part of odroid-go-std-lib.
  * Copyright (c) 2019 ducalex.
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3.
  *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License 
+ * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _ODROID_H_
 #define _ODROID_H_
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "spi_lcd.h"
@@ -59,6 +64,8 @@ void odroid_delay(uint32_t ms);
 size_t odroid_mem_free(uint32_t caps);
 uint32_t odroid_millis();
 
+extern SemaphoreHandle_t odroid_spi_lock;
+extern nvs_handle odroid_nvs_handle;
 
 // Deprecated
 #define free_bytes_total() odroid_mem_free(MALLOC_CAP_DEFAULT)

@@ -1,17 +1,17 @@
-/* 
+/*
  * This file is part of odroid-go-std-lib.
  * Copyright (c) 2019 ducalex.
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3.
  *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License 
+ * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -25,13 +25,13 @@
 #define SAMPLERATE 22050
 
 static bool sound_initialized = false;
-static float volume = 1.00f;
+static float master_volume = 1.00f;
 
 
 void odroid_sound_init(void)
 {
     if (sound_initialized) return;
-    
+
     ESP_LOGI(__func__, "Initializing sound.");
 
     static const i2s_config_t i2s_config = {
@@ -55,6 +55,11 @@ void odroid_sound_init(void)
     i2s_set_pin(I2S_NUM_0, NULL); //for internal DAC, this will enable both of the internal channels
 
     i2s_set_dac_mode(I2S_DAC_CHANNEL_BOTH_EN);
+
+	if (odroid_nvs_handle) {
+		size_t size = sizeof(master_volume);
+		nvs_get_blob(odroid_nvs_handle, "master_volume", (void*)&master_volume, &size);
+	}
 }
 
 
@@ -76,10 +81,10 @@ size_t odroid_sound_write_raw(void *buffer, size_t length)
 size_t odroid_sound_write(int16_t *soundBuffer, size_t frameCount)
 {
     // This code from go-play by OtherCrashOverride
-    
+
     int sampleCount = frameCount * 2; // One frame = 2x 16bit stereo samples.
     int bytesCount = frameCount * 4;  // One frame is four bytes.
-    
+
 	for (int i = 0; i < sampleCount; i += 2)
     {
 		uint16_t dac0;
@@ -95,7 +100,7 @@ size_t odroid_sound_write(int16_t *soundBuffer, size_t frameCount)
 
 		// Scale
 		const int magnitude = 127 + 127;
-		const float range = magnitude  * sn * volume;
+		const float range = magnitude  * sn * master_volume;
 
 		// Convert to differential output
 		if (range > 127)
@@ -122,12 +127,12 @@ size_t odroid_sound_write(int16_t *soundBuffer, size_t frameCount)
 
 		soundBuffer[i] = (int16_t)dac1;
 		soundBuffer[i + 1] = (int16_t)dac0;
-        
+
         // This is a simpler but less accurate approach:
 		//soundBuffer[i + 1] = soundBuffer[i] << 8;
 		//soundBuffer[i] = (int16_t)0x8000;
 	}
-	
+
 	return odroid_sound_write_raw(soundBuffer, bytesCount);
 }
 
@@ -140,5 +145,9 @@ void odroid_sound_set_sample_rate(uint32_t rate)
 
 void odroid_sound_set_volume(float newVolume)
 {
-    volume = newVolume;
+	if (odroid_nvs_handle && master_volume != newVolume) {
+		nvs_set_blob(odroid_nvs_handle, "master_volume", (void*)&newVolume, sizeof(newVolume));
+		nvs_commit(odroid_nvs_handle);
+	}
+    master_volume = newVolume;
 }
