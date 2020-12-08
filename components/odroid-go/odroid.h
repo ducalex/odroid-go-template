@@ -18,13 +18,14 @@
 #ifndef _ODROID_H_
 #define _ODROID_H_
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include "esp_heap_caps.h"
-#include "esp_log.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+#include <driver/gpio.h>
+#include <nvs_flash.h>
+#include <nvs.h>
+#include <esp_heap_caps.h>
+#include <esp_log.h>
 #include "spi_lcd.h"
 #include "sdcard.h"
 #include "sound.h"

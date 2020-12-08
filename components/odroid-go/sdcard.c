@@ -1,17 +1,17 @@
-/* 
+/*
  * This file is part of odroid-go-std-lib.
  * Copyright (c) 2019 ducalex.
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3.
  *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License 
+ * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -20,10 +20,10 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdspi_host.h"
-#include "sdmmc_cmd.h"
+#include <driver/sdmmc_host.h>
+#include <driver/sdspi_host.h>
+#include <esp_vfs_fat.h>
+#include <sdmmc_cmd.h>
 #include "odroid.h"
 
 static bool sdcard_initialized = false;
@@ -32,7 +32,7 @@ static bool sdcard_initialized = false;
 void odroid_sdcard_init()
 {
     if (sdcard_initialized) return;
-    
+
     ESP_LOGI(__func__, "Initializing SD Card.");
 
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
@@ -72,9 +72,9 @@ void odroid_sdcard_init()
 int odroid_sdcard_read_file(char const *name, char **buffer)
 {
     odroid_spi_bus_acquire();
-    
+
     FILE *fp = fopen(name, "rb");
-    
+
     if (fp) {
         fseek(fp, 0, SEEK_END);
         int length = ftell(fp);
@@ -86,11 +86,11 @@ int odroid_sdcard_read_file(char const *name, char **buffer)
         if (read != length) {
             ESP_LOGW(__func__, "Length mismatch (Got %d, expected %d)", read, length);
         }
-        
+
         odroid_spi_bus_release();
         return read;
     }
-    
+
     ESP_LOGE(__func__, "failed to open %s", name);
 
     odroid_spi_bus_release();
@@ -102,15 +102,15 @@ int odroid_sdcard_write_file(char const *name, void *source, int length)
 {
     odroid_spi_bus_acquire();
     FILE *fp = fopen(name, "wb");
-    
+
     if (fp) {
         int written = fwrite(source, 1, length, fp);   // Write data
         fclose(fp);
-        
+
         if (written != length) {
             ESP_LOGW(__func__, "Length mismatch (Got %d, expected %d)", written, length);
         }
-        
+
         odroid_spi_bus_release();
         return written;
     }

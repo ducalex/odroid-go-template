@@ -1,30 +1,30 @@
-/* 
+/*
  * This file is part of odroid-go-std-lib.
  * Copyright (c) 2019 ducalex.
- * 
- * This program is free software: you can redistribute it and/or modify  
- * it under the terms of the GNU General Public License as published by  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, version 3.
  *
- * This program is distributed in the hope that it will be useful, but 
- * WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License 
+ * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h> 
+#include <string.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/task.h"
-#include "driver/rtc_io.h"
-#include "driver/gpio.h"
-#include "driver/adc.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
+#include <driver/rtc_io.h>
+#include <driver/gpio.h>
+#include <driver/adc.h>
 
 #include "odroid.h"
 
@@ -98,7 +98,7 @@ static void odroid_input_task(void *arg)
                 changes++;
             }
 		}
-		
+
         if (changes > 0 && odroid_input_callback_fn != NULL) {
             (*odroid_input_callback_fn)(gamepad_state);
             // update previous only if there's a callback, otherwise get_state will do it;
@@ -128,7 +128,7 @@ int odroid_input_wait_for_button_press(int ticks)
 {
     uint8_t previousValues[ODROID_INPUT_MAX] = {0};
     uint8_t values[ODROID_INPUT_MAX] = {0};
-    
+
     int timeout = xTaskGetTickCount() + ticks;
 
     odroid_input_read_raw((uint8_t*)&previousValues);
@@ -150,7 +150,7 @@ int odroid_input_wait_for_button_press(int ticks)
         if (ticks > 0 && timeout < xTaskGetTickCount()) {
             break;
         }
-        
+
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 

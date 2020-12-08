@@ -19,14 +19,14 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_heap_caps.h"
-#include "soc/gpio_struct.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "driver/ledc.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <esp_system.h>
+#include <esp_heap_caps.h>
+#include <soc/gpio_struct.h>
+#include <driver/spi_master.h>
+#include <driver/gpio.h>
+#include <driver/ledc.h>
 
 #include "sdkconfig.h"
 #include "odroid.h"

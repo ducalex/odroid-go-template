@@ -1,4 +1,10 @@
 # Description
+Native ESP-IDF 4.0 application template for the ODROID-GO.
 
-This is a base library to initialize and access all Odroid GO hardware. Its main goal is to make porting existing applications easy
-by providing a simple abstraction. It isn't meant to write new applications as the audio and video capabilities are very basic, please consider using Arduino or libraries such as uGFX.
+The tools folder contains the mkfw.py utility from 
+[odroid-go-multi-firmware](https://github.com/ducalex/odroid-go-multi-firmware) 
+and patches for esp-idf to improve SD Card compatibility.
+
+# Build
+- `idf.py build`
+- `./tools/mkfw.py my-project.fw 'My Project' tile.raw 0 0 0 my-project build/my-project.bin`

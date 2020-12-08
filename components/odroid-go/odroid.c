@@ -19,7 +19,7 @@
 #include "odroid.h"
 
 SemaphoreHandle_t odroid_spi_lock = NULL;
-nvs_handle odroid_nvs_handle = 0;
+nvs_handle odroid_nvs_handle;
 
 void odroid_system_init(odroid_config_t *config)
 {
@@ -37,7 +37,7 @@ void odroid_system_init(odroid_config_t *config)
             nvs_flash_erase();
             nvs_flash_init();
         }
-        nvs_open("odroid", NVS_READWRITE, odroid_nvs_handle);
+        nvs_open("odroid", NVS_READWRITE, &odroid_nvs_handle);
     }
 
     // SPI

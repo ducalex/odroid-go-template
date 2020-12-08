@@ -1,0 +1,20 @@
+{
+    "esp.sdk-path": "C:/Users/alex/Apps/esp-idf/4.0",
+    "esp.tools-path": "C:/Users/alex/Apps/esp-idf/tools/tools/xtensa-esp32-elf/esp-2019r2-8.2.0/xtensa-esp32-elf",
+
+    "C_Cpp.autoAddFileAssociations": false,
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/components/**",
+        "${workspaceFolder}/../components/**",
+        "${config:esp.sdk-path}/components/**",
+        "${config:esp.tools-path}/include/**"
+    ],
+    "C_Cpp.default.forcedInclude": [
+        "${workspaceFolder}/build/config/sdkconfig.h",
+        "${workspaceFolder}/build/sdkconfig.h",
+    ],
+    "C_Cpp.default.compilerPath": "${config:esp.tools-path}/bin/xtensa-esp32-elf-g++.exe",
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.cppStandard": "c++11",
+    "C_Cpp.default.intelliSenseMode": "gcc-x64",
+}
