@@ -7,4 +7,4 @@ and patches for esp-idf to improve SD Card compatibility.
 
 # Build
 - `idf.py build`
-- `./tools/mkfw.py my-project.fw 'My Project' tile.raw 0 0 0 my-project build/my-project.bin`
+- `./tools/mkfw.py my-project.fw "My Project" tile.raw 0 0 0 my-project build/my-project.bin`
